@@ -1,87 +1,239 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Flame } from 'lucide-react';
 
 const PromoSection = () => {
+    const [isInView, setIsInView] = useState(false);
+    const sectionRef = useRef(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsInView(true);
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (sectionRef.current) {
+            observer.observe(sectionRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
+
     return (
-        <>
-            {/* Secondary Promo Banner */}
-            <motion.section
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="relative h-80 md:h-[500px] rounded-[3rem] md:rounded-[5rem] overflow-hidden group shadow-2xl"
+        <section className="space-y-8">
+            {/* Main Promo Banner */}
+            <div
+                ref={sectionRef}
+                className={`relative h-[450px] md:h-[600px] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden transition-all duration-1000 ease-out border border-white/5 bg-black ${
+                    isInView 
+                        ? 'opacity-100 scale-100 translate-y-0' 
+                        : 'opacity-0 scale-95 translate-y-10'
+                }`}
             >
-                <motion.img
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ duration: 1.5 }}
+                <img
                     src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1200&auto=format&fit=crop"
                     alt="Promotion"
-                    className="w-full h-full object-cover transition-transform"
+                    className="w-full h-full object-cover opacity-40 grayscale"
+                    loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/40 to-transparent"></div>
-                <motion.div
-                    initial={{ x: -100, opacity: 0 }}
-                    whileInView={{ x: 0, opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.3, duration: 0.8 }}
-                    className="absolute inset-0 flex flex-col justify-center p-10 md:p-24 space-y-6 md:space-y-10"
-                >
-                    <div className="flex items-center gap-3 text-accent font-black tracking-[0.3em] uppercase text-xs md:text-sm">
-                        <span className="w-8 h-0.5 bg-accent"></span> Flash Sale is Live
+                
+                <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+                
+                <div className={`absolute inset-0 flex flex-col justify-center p-8 md:p-20 space-y-2 transition-all duration-1000 delay-300 ${
+                    isInView 
+                        ? 'opacity-100 translate-x-0' 
+                        : 'opacity-0 -translate-x-10'
+                }`}>
+                    {/* Secondary Sub-headline */}
+                    <div className="flex items-center gap-3 text-[#f7a221] font-black text-[10px] md:text-xs uppercase tracking-[0.4em] mb-2">
+                        <Flame size={16} fill="currentColor" /> UPGRADE YOUR LIVING WITH
                     </div>
-                    <h2 className="text-white text-4xl md:text-8xl font-black leading-[0.9] tracking-tighter">
-                        UPGRADE <br />
-                        <span className="text-secondary underline decoration-white/20 underline-offset-[12px]">YOUR LIVING.</span>
+                    
+                    {/* MAIN TEXT: OFFERWALE BABA WITH FLICKER GLITCH */}
+                    <h2 className="text-white text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase ">
+                        OFFERWALE <br />
+                        <span 
+                            className="text-transparent flicker-text" 
+                            style={{ WebkitTextStroke: '2px #f7a221' }}
+                        >
+                           BABA
+                        </span>
                     </h2>
-                    <p className="text-gray-300 max-w-md text-sm md:text-xl font-medium leading-relaxed">
-                        Limited time offer on all premium electronics and home decor. Make your home smart today.
-                    </p>
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-accent hover:bg-white text-primary font-black px-12 py-5 rounded-full w-fit transition-all shadow-[0_20px_50px_rgba(9,205,255,0.3)] hover:shadow-accent/40 active:scale-95 flex items-center gap-3 text-sm tracking-widest"
-                    >
-                        EXPLORE DEALS <ArrowRight size={20} />
-                    </motion.button>
-                </motion.div>
-            </motion.section>
+
+                    <div className="pt-6 space-y-6">
+                        <p className="text-gray-400 max-w-md text-sm md:text-xl font-medium leading-relaxed">
+                            India's most trusted electronics hub. <br />
+                            <span className="text-white font-bold">Unbeatable deals. Curated quality.</span>
+                        </p>
+
+                        <button className="bg-[#f7a221] hover:bg-white text-black font-black px-10 py-5 rounded-full w-fit transition-all duration-500 flex items-center gap-4 text-xs md:text-sm tracking-[0.2em] shadow-[0_20px_40px_-10px_rgba(247,162,33,0.5)] group">
+                            EXPLORE THE DROP 
+                            <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Promo Grid Cards */}
-            <div className="grid md:grid-cols-3 gap-8 md:gap-12 pb-10">
+            <div className="grid md:grid-cols-3 gap-6">
                 {[
-                    { title: "Smart Toys", subtitle: "Shop Collection", img: "https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=600&auto=format&fit=crop", overlay: "bg-blue-900/40" },
-                    { title: "Tech Gadgets", subtitle: "Starting ₹99", img: "https://images.unsplash.com/photo-1593642702749-b7d2a5482bb3?q=80&w=600&auto=format&fit=crop", overlay: "bg-red-900/40" },
-                    { title: "Home Decor", subtitle: "Flat 50% Off", img: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=600&auto=format&fit=crop", overlay: "bg-green-900/40" }
+                    { title: "Smart Toys", subtitle: "Trending Now", img: "https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=600&auto=format&fit=crop" },
+                    { title: "Tech Gadgets", subtitle: "Starting ₹99", img: "https://images.unsplash.com/photo-1593642702749-b7d2a5482bb3?q=80&w=600&auto=format&fit=crop" },
+                    { title: "Home Decor", subtitle: "Flat 50% Off", img: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=600&auto=format&fit=crop" },
+                    { title: "Home Decor2", subtitle: "Flat 50% Off", img: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=600&auto=format&fit=crop" }
                 ].map((promo, idx) => (
-                    <motion.div
+                    <div
                         key={idx}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: idx * 0.15 }}
-                        whileHover={{ y: -15 }}
-                        className="relative h-80 md:h-[400px] rounded-[3rem] md:rounded-[4rem] overflow-hidden group cursor-pointer shadow-xl"
+                        className={`group relative h-72 md:h-80 rounded-[2.5rem] overflow-hidden border border-white/5 transition-all duration-700 ${
+                            isInView 
+                                ? 'opacity-100 translate-y-0' 
+                                : 'opacity-0 translate-y-10'
+                        }`}
+                        style={{ transitionDelay: `${(idx + 1) * 200}ms` }}
                     >
-                        <img src={promo.img} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={promo.title} />
-                        <div className={`absolute inset-0 ${promo.overlay} group-hover:opacity-60 transition-opacity duration-500`}></div>
-                        <div className="absolute inset-0 flex flex-col justify-end p-10 md:p-14 text-white space-y-3">
-                            <h5 className="text-4xl md:text-5xl font-black tracking-tighter leading-none">{promo.title}</h5>
-                            <motion.p
-                                whileHover={{ x: 10 }}
-                                className="text-xs md:text-sm font-black tracking-widest uppercase border-b-2 border-white/40 w-fit pb-1 transition-colors group-hover:border-accent"
-                            >
+                        <img 
+                            src={promo.img} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale-[50%] group-hover:grayscale-0" 
+                            alt={promo.title}
+                            loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+                        <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                            <h5 className="text-3xl font-black uppercase tracking-tighter leading-none group-hover:text-[#f7a221] transition-colors mb-2">
+                                {promo.title}
+                            </h5>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f7a221] opacity-80 group-hover:opacity-100">
                                 {promo.subtitle}
-                            </motion.p>
+                            </p>
                         </div>
-                        <div className="absolute top-10 right-10 p-5 bg-white/10 backdrop-blur-md rounded-full border border-white/20 opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100 rotate-12 group-hover:rotate-0">
-                            <ArrowRight className="text-white" size={24} />
-                        </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
-        </>
+
+            <style jsx>{`
+                .flicker-text {
+                    animation: flicker 3s linear infinite;
+                }
+
+                @keyframes flicker {
+                    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+                        opacity: 1;
+                        filter: drop-shadow(0 0 10px rgba(247, 162, 33, 0.8));
+                    }
+                    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                        opacity: 0.4;
+                        filter: none;
+                    }
+                }
+            `}</style>
+        </section>
     );
 };
 
 export default PromoSection;
+
+
+// import React, { useState, useEffect, useRef } from 'react';
+// import { ArrowRight } from 'lucide-react';
+
+// const PromoSection = () => {
+//     const [isInView, setIsInView] = useState(false);
+//     const sectionRef = useRef(null);
+
+//     useEffect(() => {
+//         const observer = new IntersectionObserver(
+//             ([entry]) => {
+//                 if (entry.isIntersecting) {
+//                     setIsInView(true);
+//                 }
+//             },
+//             { threshold: 0.1 }
+//         );
+
+//         if (sectionRef.current) {
+//             observer.observe(sectionRef.current);
+//         }
+
+//         return () => observer.disconnect();
+//     }, []);
+
+//     return (
+//         <>
+//             {/* Main Promo Banner */}
+//             <div
+//                 ref={sectionRef}
+//                 className={`relative h-64 md:h-80 rounded-2xl md:rounded-3xl overflow-hidden mb-8 transition-all duration-500 ${
+//                     isInView 
+//                         ? 'opacity-100 scale-100' 
+//                         : 'opacity-0 scale-95'
+//                 }`}
+//             >
+//                 <img
+//                     src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1200&auto=format&fit=crop"
+//                     alt="Promotion"
+//                     className="w-full h-full object-cover"
+//                     loading="lazy"
+//                 />
+//                 <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/50 to-transparent"></div>
+                
+//                 <div className={`absolute inset-0 flex flex-col justify-center p-6 md:p-12 space-y-4 transition-all duration-700 ${
+//                     isInView 
+//                         ? 'opacity-100 translate-x-0' 
+//                         : 'opacity-0 -translate-x-4'
+//                 }`}>
+//                     <div className="flex items-center gap-2 text-accent font-bold text-xs uppercase">
+//                         <span className="w-6 h-0.5 bg-accent"></span> Flash Sale is Live
+//                     </div>
+//                     <h2 className="text-white text-3xl md:text-5xl font-bold leading-tight">
+//                         UPGRADE <br />
+//                         <span className="text-secondary">YOUR LIVING.</span>
+//                     </h2>
+//                     <p className="text-gray-300 max-w-md text-sm md:text-base">
+//                         Limited time offer on all premium electronics and home decor.
+//                     </p>
+//                     <button className="bg-accent hover:bg-white text-primary font-bold px-6 py-3 rounded-full w-fit transition-colors flex items-center gap-2 text-sm">
+//                         EXPLORE DEALS <ArrowRight size={18} />
+//                     </button>
+//                 </div>
+//             </div>
+
+//             {/* Promo Grid Cards */}
+//             <div className="grid md:grid-cols-3 gap-6">
+//                 {[
+//                     { title: "Smart Toys", subtitle: "Shop Collection", img: "https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=600&auto=format&fit=crop" },
+//                     { title: "Tech Gadgets", subtitle: "Starting ₹99", img: "https://images.unsplash.com/photo-1593642702749-b7d2a5482bb3?q=80&w=600&auto=format&fit=crop" },
+//                     { title: "Home Decor", subtitle: "Flat 50% Off", img: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=600&auto=format&fit=crop" }
+//                 ].map((promo, idx) => (
+//                     <div
+//                         key={idx}
+//                         className={`relative h-60 md:h-72 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
+//                             isInView 
+//                                 ? 'opacity-100 scale-100' 
+//                                 : 'opacity-0 scale-95'
+//                         }`}
+//                         style={{ transitionDelay: `${idx * 150}ms` }}
+//                     >
+//                         <img 
+//                             src={promo.img} 
+//                             className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" 
+//                             alt={promo.title}
+//                             loading="lazy"
+//                         />
+//                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+//                         <div className="absolute inset-0 flex flex-col justify-end p-6 text-white space-y-2">
+//                             <h5 className="text-2xl md:text-3xl font-bold">{promo.title}</h5>
+//                             <p className="text-sm font-bold uppercase border-b-2 border-white/40 w-fit pb-1">
+//                                 {promo.subtitle}
+//                             </p>
+//                         </div>
+//                     </div>
+//                 ))}
+//             </div>
+//         </>
+//     );
+// };
+
+// export default PromoSection;

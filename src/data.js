@@ -1,12 +1,14 @@
 export const categories = [
-    { name: 'Kitchen', img: 'https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Household', img: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Personal Care', img: 'https://images.unsplash.com/photo-1612817288484-6f916006741a?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Toys', img: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Fitness', img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Electronics', img: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Home Decor', img: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Outdoor', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Smart Life Gadgets', img: 'https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Home & Kitchen', img: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Fashion World', img: 'https://images.unsplash.com/photo-1612817288484-6f916006741a?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Sports & Fitness', img: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Tours & Travels', img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Stationary', img: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Baby Items', img: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Car Accessories', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    // { name: 'Mix Items Daily use', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    // { name: 'Gifts', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
 ];
 
 export const products = [

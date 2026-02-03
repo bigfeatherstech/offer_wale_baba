@@ -1,13 +1,30 @@
 @import "tailwindcss";
 
+/* ✅ Tailwind v4 theme definition */
 @theme {
+  --font-display: "Inter", system-ui, sans-serif;
+
   --color-primary: #0a1128;
   --color-primary-light: #1a2a4e;
   --color-secondary: #e31e24;
   --color-secondary-hover: #c2181d;
   --color-accent: #09cdff;
-  --font-sans: "Plus Jakarta Sans", sans-serif;
 }
+
+/* ✅ Apply font globally (v4 correct way) */
+body {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+body {
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
 
 @keyframes float {
 
@@ -60,27 +77,15 @@
     @apply text-white/90 hover:text-white transition-all duration-300 text-sm font-bold uppercase tracking-widest relative overflow-hidden pb-1;
   }
 
-  .nav-link::after {
+  /* .nav-link::after {
     @apply content-[''] absolute bottom-0 left-0 w-0 h-0.5 bg-accent transition-all duration-300;
   }
 
   .nav-link:hover::after {
     @apply w-full;
-  }
+  } */
 
-  .product-card {
-    background-color: white;
-    border-radius: 1.5rem;
-    box-shadow: 0 10px 40px -15px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(243, 244, 246, 0.5);
-    overflow: hidden;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .product-card:hover {
-    box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.2);
-    transform: translateY(-0.5rem);
-  }
+ 
 
   .glass-card {
     backdrop-filter: blur(24px);
@@ -124,3 +129,5 @@
     animation: mesh-move 15s ease infinite;
   }
 }
+
+
