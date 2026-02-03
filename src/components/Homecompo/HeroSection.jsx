@@ -74,7 +74,7 @@ const HeroSection = () => {
                 <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
             </div>
 
-            <div className="relative z-10 grid md:grid-cols-[1.2fr_0.8fr] h-full min-h-[600px] md:min-h-[550px] items-center">
+            <div className="bg-[#7f7f7f] relative z-10 grid md:grid-cols-[1.2fr_0.8fr] h-full min-h-[600px] md:min-h-[550px] items-center">
                 {/* Content Side - Compact & Punchy */}
                 <div className="flex flex-col justify-center p-6 md:p-12 md:pl-16 space-y-4 md:space-y-3">
                     <div className="flex items-center gap-6 flex-wrap">
@@ -84,7 +84,7 @@ const HeroSection = () => {
                             animate={{ opacity: 1, scale: 1 }}
                             className="flex items-center gap-2 bg-gradient-to-r from-accent/20 to-secondary/20 backdrop-blur-xl border border-white/10 text-accent text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.3em] shadow-xl"
                         >
-                            <Zap size={12} className="text-secondary animate-pulse" /> Viral Innovations
+                            <Zap size={12} className="text-[#f7a221] animate-pulse" /> Viral Innovations
                         </motion.div>
 
                         {/* Live Stats Badge */}
@@ -104,10 +104,10 @@ const HeroSection = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, ease: "circOut" }}
-                            className="text-4xl md:text-6xl font-black leading-[0.9] tracking-[-0.03em] text-white"
+                            className="text-4xl md:text-6xl  leading-[0.9] tracking-[-0.03em] text-white"
                         >
                             SHOP SMART.{' '}
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-white to-secondary animate-mesh bg-[length:300%_auto] drop-shadow-[0_0_30px_rgba(9,205,255,0.3)]">
+                            <span className="text-transparent bg-clip-text bg-white animate-mesh bg-[length:300%_auto] drop-shadow-[0_0_30px_rgba(9,205,255,0.3)]">
                                 LIVE BIG.
                             </span>
                         </motion.h1>
@@ -130,7 +130,7 @@ const HeroSection = () => {
                         <motion.button
                             whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(227,30,36,0.5)" }}
                             whileTap={{ scale: 0.95 }}
-                            className="btn-premium flex items-center gap-3 py-3 px-8 text-sm shadow-[0_15px_30px_-5px_rgba(227,30,36,0.4)]"
+                            className="bg-[#f7a221] btn-premium flex items-center gap-3 py-3 px-8 text-sm shadow-[0_15px_30px_-5px_rgba(227,30,36,0.4)]"
                         >
                             <ShoppingBag size={18} /> SHOP NOW
                         </motion.button>
@@ -225,3 +225,8 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
+
+
+
+
+

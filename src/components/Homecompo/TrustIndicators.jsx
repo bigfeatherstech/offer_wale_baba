@@ -8,16 +8,16 @@ const TrustIndicators = () => {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="bg-white p-8 md:p-16 rounded-[3rem] md:rounded-[5rem] border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16 relative overflow-hidden"
+            className="mt-25 bg-white p-8 md:p-16 rounded-[3rem] md:rounded-[5rem] border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16 relative overflow-hidden"
         >
             {/* Subtle Background Element */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
             {[
-                { icon: <Truck className="text-secondary" />, title: "Free Shipping", subtitle: "On orders over ₹999" },
-                { icon: <RefreshCw className="text-secondary" />, title: "7 Days Return", subtitle: "Easy refund policy" },
-                { icon: <ShieldCheck className="text-secondary" />, title: "Secure Payment", subtitle: "100% safe transactions" },
-                { icon: <Star className="text-secondary" />, title: "Premium Quality", subtitle: "Best products in India" },
+                { icon: <Truck className="text-[#f7a221]" />, title: "Free Shipping", subtitle: "On orders over ₹999" },
+                { icon: <RefreshCw className="text-[#f7a221]" />, title: "7 Days Return", subtitle: "Easy refund policy" },
+                { icon: <ShieldCheck className="text-[#f7a221]" />, title: "Secure Payment", subtitle: "100% safe transactions" },
+                { icon: <Star className="text-[#f7a221]" />, title: "Premium Quality", subtitle: "Best products in India" },
             ].map((item, idx) => (
                 <motion.div
                     key={idx}
@@ -30,12 +30,12 @@ const TrustIndicators = () => {
                     <motion.div
                         whileHover={{ rotate: 360, scale: 1.1 }}
                         transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                        className="p-5 md:p-8 bg-gray-50 rounded-[2rem] group-hover:bg-secondary group-hover:text-white transition-colors duration-500 shadow-sm group-hover:shadow-secondary/30"
+                        className="p-5 md:p-8 bg-gray-50 rounded-[2rem] group-hover:bg-group-hover:text-white transition-colors duration-500 shadow-sm group-hover:shadow-secondary/30"
                     >
                         {item.icon}
                     </motion.div>
                     <div>
-                        <h4 className="font-black text-sm md:text-xl tracking-tight transition-colors group-hover:text-secondary">{item.title}</h4>
+                        <h4 className="text-sm md:text-xl tracking-tight transition-colors group-hover:text-[#f7a221]">{item.title}</h4>
                         <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-widest">{item.subtitle}</p>
                     </div>
                 </motion.div>

@@ -1,12 +1,30 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @theme {
   --color-primary: #0a1128;
   --color-primary-light: #1a2a4e;
   --color-secondary: #e31e24;
   --color-secondary-hover: #c2181d;
   --color-accent: #09cdff;
-  --font-sans: "Plus Jakarta Sans", sans-serif;
+  /* --font-sans: "Plus Jakarta Sans", sans-serif; */
+  
+  --font-sans: Arial, Helvetica, sans-serif;
+
+    /* Custom animation keyframes */
+  --animate-dance-slow: dance-slow 3s infinite ease-in-out;
+  --animate-truck-move: truck-move 2s infinite ease-in-out;
+  --animate-pulse-fire: pulse-fire 1.5s infinite ease-in-out;
+}
+
+/* Base styles (GLOBAL) */
+@layer base {
+  body {
+    @apply font-sans antialiased bg-gray-50 text-gray-900 tracking-[-0.01em];
+  }
 }
 
 @keyframes float {
@@ -49,11 +67,7 @@
   }
 }
 
-@layer base {
-  body {
-    @apply font-sans antialiased bg-gray-50 text-gray-900 tracking-[-0.01em];
-  }
-}
+
 
 @layer components {
   .nav-link {
@@ -122,5 +136,82 @@
   .animate-mesh {
     background-size: 200% 200%;
     animation: mesh-move 15s ease infinite;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* Custom animation keyframes */
+@keyframes dance-slow {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-3px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-3px) rotate(-5deg);
+  }
+}
+
+@keyframes truck-move {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  33% {
+    transform: translateX(2px);
+  }
+  66% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes pulse-fire {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+  }
+}
+
+/* Custom animations for text */
+@keyframes text-glow {
+  0%, 100% {
+    text-shadow: 0 0 0px currentColor;
+  }
+  50% {
+    text-shadow: 0 0 8px currentColor;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .overflow-x-auto {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
   }
 }

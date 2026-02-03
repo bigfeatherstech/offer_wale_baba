@@ -1,26 +1,71 @@
+// /** @type {import('tailwindcss').Config} */
+// export default {
+//     content: [
+//         "./index.html",
+//         "./src/**/*.{js,ts,jsx,tsx}",
+//     ],
+//     theme: {
+//         extend: {
+//             colors: {
+//                 // primary: {
+//                 //     DEFAULT: '#0a1128', 
+//                 //     light: '#1a2a4e',
+//                 // },
+//                 secondary: {
+//                     DEFAULT: '#e31e24', 
+//                     hover: '#c2181d',
+//                 },
+//                 // accent: '#09cdff', 
+
+//                  tertiory:{
+//             DEFAULT: "#f7a221",
+//              hover: "#f7a221",
+       
+//           dark: "#B38600",
+//           light: "#E6C35C",
+//           },
+//             },
+         
+//        greyish:{
+//         DEFAULT:"#7f7f7f"
+//        }
+//         },
+//     },
+//     plugins: [],
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
 /** @type {import('tailwindcss').Config} */
 export default {
-    content: [
-        "./index.html",
-        "./src/**/*.{js,ts,jsx,tsx}",
-    ],
-    theme: {
-        extend: {
-            colors: {
-                primary: {
-                    DEFAULT: '#0a1128', // Navy Blue
-                    light: '#1a2a4e',
-                },
-                secondary: {
-                    DEFAULT: '#e31e24', // Red
-                    hover: '#c2181d',
-                },
-                accent: '#09cdff', // Cyan/Aqua
-            },
-            fontFamily: {
-                sans: ['Poppins', 'sans-serif'],
-            },
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        tertiory: {
+          DEFAULT: "#f7a221",
+          hover: "#f7a221",
+          dark: "#B38600",
+          light: "#E6C35C",
         },
+        greyish: {
+          DEFAULT: "#7f7f7f"
+        }
+      },
     },
-    plugins: [],
+  },
+  plugins: [],
 }
