@@ -1,4 +1,4 @@
-import React, { useCallback, memo, useState } from 'react';
+import React, { useCallback, memo, useState, useRef, useEffect, } from 'react';
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
@@ -93,7 +93,39 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
     const handleSearchChange = useCallback((e) => {
         setSearchQuery(e.target.value);
     }, [setSearchQuery]);
-
+const [isLogoHovered, setIsLogoHovered] = useState(false);
+    const [burstIcons, setBurstIcons] = useState([]);
+    useEffect(() => {
+        let interval;
+        if (isLogoHovered) {
+            interval = setInterval(() => {
+                const newIcon = {
+                    id: Date.now(), // unique key for React
+                    ...iconPool[Math.floor(Math.random() * iconPool.length)],
+                    // Randomize direction and distance
+                    x: (Math.random() - 0.5) * 200 + "px", 
+                    y: (Math.random() - 0.5) * 200 + "px",
+                    rotation: Math.random() * 360 + "deg"
+                };
+                
+                setBurstIcons((prev) => [...prev.slice(-15), newIcon]); // Keep last 15 icons for performance
+            }, 150); // Speed of the flush (150ms)
+        } else {
+            setBurstIcons([]); // Clear icons when mouse leaves
+        }
+        return () => clearInterval(interval);
+    }, [isLogoHovered]);
+// Define the icons that will "flush" out
+  const iconPool = [
+        { icon: <Smartphone size={18} />, color: "text-blue-500" },
+        { icon: <Shirt size={18} />, color: "text-orange-500" },
+        { icon: <Dumbbell size={18} />, color: "text-green-500" },
+        { icon: <Package size={18} />, color: "text-purple-500" },
+        { icon: <Baby size={18} />, color: "text-pink-500" },
+        { icon: <ChefHat size={18} />, color: "text-red-500" },
+        { icon: <Car size={18} />, color: "text-gray-600" },
+        { icon: <HeadphonesIcon size={18} />, color: "text-yellow-500" }
+    ];
     const actionIcons = [
         { icon: <User size={22} />, label: "Account" },
         { icon: <Heart size={22} />, label: "Wishlist", count: 0, badge: "bg-red-600" },
@@ -160,13 +192,41 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
                             <button onClick={() => setIsMenuOpen(true)} className="lg:hidden p-2 text-black bg-gray-50 rounded-lg">
                                 <Menu size={24} />
                             </button>
-                            <Link to="/" className="flex-shrink-0 flex items-center justify-center p-1 group">
+                            {/* <Link to="/" className="flex-shrink-0 flex items-center justify-center p-1 group">
                                 <img 
-                                    className="object-contain transition-transform duration-500 group-hover:scale-105 w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
+                                    className="object-contain transition-transform duration-500  w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
                                     style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }} 
                                     src={logo} alt="Logo" 
                                 />
-                            </Link>
+                            </Link> */}
+
+                            {/* --- ENHANCED LOGO SECTION --- */}
+                           <Link 
+                to="/" 
+                className="relative flex-shrink-0 flex items-center justify-center p-1 group"
+                onMouseEnter={() => setIsLogoHovered(true)}
+                onMouseLeave={() => setIsLogoHovered(false)}
+            >
+                {/* The Continuous Burst */}
+                {burstIcons.map((item) => (
+                    <div 
+                        key={item.id}
+                        className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
+                        style={{ 
+                            '--target-x': item.x, 
+                            '--target-y': item.y,
+                            '--target-rot': item.rotation
+                        }}
+                    >
+                        {item.icon}
+                    </div>
+                ))}
+
+                <img 
+                    className="relative z-10 object-contain transition-transform duration-500 w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
+                    src={logo} alt="Logo" 
+                />
+            </Link>
                         </div>
 
                         {/* Location - Desktop Only */}
@@ -355,6 +415,27 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
                     to { opacity: 1; transform: translateY(0); }
                 }
                 .animate-slideDown { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+
+
+               @keyframes flush-continuous {
+    0% {
+        transform: translate(0, 0) scale(0.5) rotate(0deg);
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--target-x), var(--target-y)) scale(1.2) rotate(var(--target-rot));
+        opacity: 0;
+    }
+}
+
+.animate-flush-continuous {
+    pointer-events: none; /* Icons won't block mouse movements */
+    animation: flush-continuous 1s ease-out forwards;
+}
             `}</style>
         </>
     );
