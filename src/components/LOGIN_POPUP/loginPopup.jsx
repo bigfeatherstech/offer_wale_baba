@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, ArrowRight, Zap, ShieldCheck, Sparkles } from 'lucide-react';
 import LOGO from '../../assets/logo.jpg';
 
-const LoginPop = ({ isOpen, onClose }) => {
+const loginPopup = ({ isOpen, onClose }) => {
     const [mobileNumber, setMobileNumber] = useState('');
     const [isError, setIsError] = useState(false);
     const modalRef = useRef();
@@ -161,13 +161,13 @@ const LoginPop = ({ isOpen, onClose }) => {
     );
 };
 
-export default LoginPop;
+export default loginPopup;
 
 // import React, { useState, useRef } from 'react';
 // import { X, ArrowRight, Zap, ShieldCheck, Sparkles } from 'lucide-react';
 // import LOGO from '../../assets/logo.jpg';
 
-// const LoginPop = ({ isOpen, onClose }) => {
+// const loginPopup = ({ isOpen, onClose }) => {
 //     const [mobileNumber, setMobileNumber] = useState('');
 //     const modalRef = useRef();
 
@@ -298,12 +298,12 @@ export default LoginPop;
 //     );
 // };
 
-// export default LoginPop;
+// export default loginPopup;
 
 // import React, { useState } from 'react';
 // import { X, ArrowRight, Zap, ShieldCheck } from 'lucide-react';
 
-// const LoginPop = ({ isOpen, onClose }) => {
+// const loginPopup = ({ isOpen, onClose }) => {
 //   const [mobileNumber, setMobileNumber] = useState('');
 
 //   if (!isOpen) return null;
@@ -400,4 +400,4 @@ export default LoginPop;
 //   );
 // };
 
-// export default LoginPop;
+// export default loginPopup;

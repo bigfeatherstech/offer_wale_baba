@@ -4,8 +4,8 @@ import Footer from './components/Footer';
 import Homepage from './pages/Homepage';
 import CustomerCare from './pages/CustomerCare';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LoginPop from './components/LOGIN_POPUP/LoginPop.JSX';
 import WhatsAppFloat from './components/WHATSAPP_FLOAT/WhatsAppFloat';
+import loginPopup from './components/LOGIN_POPUP/loginPopup';
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,10 +44,8 @@ const App = () => {
         
         <Footer />
 
-      <LoginPop 
-        isOpen={isLoginOpen} 
-        onClose={() => setIsLoginOpen(false)} 
-      />
+    
+        <loginPopup isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
       <WhatsAppFloat />
       </div>
     </Router>
