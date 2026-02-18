@@ -50,22 +50,21 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["Inter", "system-ui", "sans-serif"],
+      },
       colors: {
-        tertiory: {
-          DEFAULT: "#f7a221",
-          hover: "#f7a221",
-          dark: "#B38600",
-          light: "#E6C35C",
-        },
-        greyish: {
-          DEFAULT: "#7f7f7f"
-        }
+        primary: "#0a1128",
+        "primary-light": "#1a2a4e",
+        secondary: "#e31e24",
+        "secondary-hover": "#c2181d",
+        accent: "#09cdff",
       },
     },
   },
   plugins: [],
-}
+};

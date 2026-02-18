@@ -10,7 +10,7 @@ const App = () => {
 
   return (
     <Router>
-      <div className="min-h-screen font-sans">
+      <div className="min-h-screen">
         <Navbar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
