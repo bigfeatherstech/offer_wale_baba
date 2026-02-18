@@ -27,7 +27,7 @@ const WhatsAppFloat = () => {
                 setTimeout(() => {
                     setStatus('visible');
                     sessionStorage.setItem('hasVisitedBABA', 'true');
-                }, 2000);
+                }, 4000);
             }, 10000);
             return () => clearTimeout(delay);
         }
