@@ -1,203 +1,231 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Sparkles, ArrowRight, Star, Zap, TrendingUp, Flame, ShoppingBag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ShoppingBag, Zap, Flame, Trophy, ArrowRight, Star, MessageSquare } from 'lucide-react';
+import logo from "../../assets/logo.jpg";
 
 const HeroSection = () => {
-    // KEPT: Your high-performance refs
-    const mousePosRef = useRef({ x: 0, y: 0 });
-    const smoothPosRef = useRef({ x: 0, y: 0 });
-    const animationFrameRef = useRef(null);
-    const lastUpdateTimeRef = useRef(0);
-    
-    // State for UI
-    const [gradientIndex, setGradientIndex] = useState(0);
-    const [parallaxTransform, setParallaxTransform] = useState({ x: 0, y: 0 });
-
-    // KEPT: Your throttled mouse handler
-    const handleMouseMove = useCallback((e) => {
-        const now = Date.now();
-        if (now - lastUpdateTimeRef.current < 33) return;
-        
-        lastUpdateTimeRef.current = now;
-        const { clientX, clientY } = e;
-        const { innerWidth, innerHeight } = window;
-        
-        mousePosRef.current = {
-            x: (clientX / innerWidth) - 0.5,
-            y: (clientY / innerHeight) - 0.5
-        };
-    }, []);
-
-    // KEPT: Your optimized animation loop
-    useEffect(() => {
-        const updateParallax = () => {
-            smoothPosRef.current = {
-                x: smoothPosRef.current.x + (mousePosRef.current.x - smoothPosRef.current.x) * 0.08,
-                y: smoothPosRef.current.y + (mousePosRef.current.y - smoothPosRef.current.y) * 0.08
-            };
-
-            const layer1X = smoothPosRef.current.x * 40;  
-            const layer1Y = smoothPosRef.current.y * 40;  
-            const layer2X = smoothPosRef.current.x * -20; 
-            const layer2Y = smoothPosRef.current.y * -20; 
-
-            setParallaxTransform({
-                layer1X, layer1Y, layer2X, layer2Y
-            });
-
-            animationFrameRef.current = requestAnimationFrame(updateParallax);
-        };
-
-        animationFrameRef.current = requestAnimationFrame(updateParallax);
-        return () => {
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-        };
-    }, []);
-
-    // UPDATED: Brand Gradients (#f7a221 and Black)
-    const gradients = [
-        "radial-gradient(circle at 20% 50%, rgba(247,162,33,0.15) 0%, transparent 50%)",
-        "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.08) 0%, transparent 50%)",
-        "radial-gradient(circle at 50% 80%, rgba(247,162,33,0.1) 0%, transparent 50%)",
-        "radial-gradient(circle at 20% 50%, rgba(247,162,33,0.15) 0%, transparent 50%)"
-    ];
-
-    useEffect(() => {
-        const gradientInterval = setInterval(() => {
-            setGradientIndex(prev => (prev + 1) % 4);
-        }, 5000);
-        return () => clearInterval(gradientInterval);
-    }, []);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const sectionRef = useRef(null);
+      const phoneNumber = "919320001717";
+    const message = "Hello! Baba, let me into the Loot! I want VIP access. 🔥"; 
+          // WhatsApp SVG
+    const WhatsAppIcon = () => (
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    );
+    const handleMouseMove = (e) => {
+        if (!sectionRef.current) return;
+        const rect = sectionRef.current.getBoundingClientRect();
+        setMousePos({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+         
+        });
+    };
 
     return (
-        <section
-            onMouseMove={handleMouseMove}
-            className="relative min-h-[600px] md:min-h-[700px] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden group bg-[#050505] selection:bg-[#f7a221] selection:text-black"
-            style={{
-                willChange: 'transform',
-                transform: 'translateZ(0)'
-            }}
-        >
-            {/* --- THEME MATCHED BACKGROUND --- */}
-            <div className="absolute inset-0 overflow-hidden">
+        <>
+            <style>
+                {`
+                /* FUSE BLINK EFFECT */
+                @keyframes fuseBlink {
+                    0%, 100% { opacity: 1; text-shadow: 0 0 20px rgba(247,162,33,0.8); }
+                    10% { opacity: 0.4; text-shadow: none; }
+                    12% { opacity: 1; text-shadow: 0 0 20px rgba(247,162,33,0.8); }
+                    20% { opacity: 0.2; text-shadow: none; }
+                    22% { opacity: 1; }
+                }
+                .hover-fuse:hover { animation: fuseBlink 0.4s infinite; }
+
+                /* STAR WAVE ANIMATION */
+                @keyframes starWave {
+                    0%, 100% { transform: translateY(0); opacity: 1; color: #f7a221; }
+                    50% { transform: translateY(8px); opacity: 0.5; color: #ffffff; }
+                }
+                .star-animate { animation: starWave 1.5s ease-in-out infinite; }
+                
+                /* TROPHY BEND TRANSITIONS */
+                .trophy-main { transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+                .trophy-side { opacity: 0; transition: all 0.4s ease-out; transform: scale(0) translateY(20px); }
+                .parent-card:hover .trophy-side-left { opacity: 1; transform: scale(1) translateX(-35px) translateY(-10px) rotate(-45deg); }
+                .parent-card:hover .trophy-side-right { opacity: 1; transform: scale(1) translateX(35px) translateY(-10px) rotate(45deg); }
+                .parent-card:hover .trophy-main { transform: translateY(-15px) scale(1.1); }
+                `}
+            </style>
+
+            <section 
+                ref={sectionRef}
+                onMouseMove={handleMouseMove}
+                className="relative w-full min-h-screen lg:min-h-[90vh] p-4 md:p-8 lg:p-12 bg-[#050505] overflow-hidden flex flex-col justify-center"
+            >
+                {/* INTERACTIVE GLOW */}
                 <div 
-                    style={{ 
-                        background: gradients[gradientIndex],
-                        transition: 'background 2s ease'
+                    className="absolute inset-0 z-0 pointer-events-none opacity-40"
+                    style={{
+                        background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(247, 162, 33, 0.12), transparent 80%)`
                     }}
-                    className="absolute inset-0"
                 />
 
-                {/* Brand Orbs */}
-                <div className="absolute -top-10 -left-10 w-[60%] h-[150%] bg-[#f7a221]/10 rounded-full blur-[100px] opacity-30" />
-                <div className="absolute -bottom-10 -right-10 w-[70%] h-[150%] bg-white/5 rounded-full blur-[120px] opacity-20" />
+                <div className="relative z-10 max-w-[1500px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+                    
+                    {/* LEFT COLUMN: MAIN CONTENT */}
+                    <div className="lg:col-span-7 flex flex-col  min-h-[500px] md:min-h-[600px] p-8 md:p-16 rounded-[3rem] bg-[#0a0a0a] border border-white/5 relative overflow-hidden group">
+                        <div className="space-y-6 relative z-10">
+                            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                                <span className="flex h-2 w-2 rounded-full bg-[#f7a221] animate-pulse"></span>
+                                <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Wholesale Kingdom</span>
+                            </div>
 
-                {/* Subtle Grid */}
-                <div className="absolute inset-0 opacity-[0.03] bg-[size:60px_60px]"
-                    style={{
-                        backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                                        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`
-                    }}>
-                </div>
-            </div>
-
-            <div className="relative z-10 grid md:grid-cols-[1.2fr_0.8fr] h-full min-h-[600px] md:min-h-[700px] items-center">
-                
-                {/* Content Side */}
-                <div className="flex flex-col justify-center p-6 md:p-16 space-y-8">
-                    <div className="flex items-center gap-4 flex-wrap">
-                        <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md border border-white/10 text-[#f7a221] text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.3em]">
-                            <Zap size={12} fill="currentColor" /> Exclusive Drop
+                            <h1 className="text-6xl md:text-8xl lg:text-[5rem] font-black text-white leading-[0.8] tracking-tighter">
+                                SHOP SMART <br />
+                                <span className="text-transparent" style={{ WebkitTextStroke: '1.5px #f7a221'}}>LIVE BIG.</span>
+                            </h1>
+                            
+                            <p className="text-gray-400 text-base md:text-xl max-w-md font-medium leading-relaxed">
+                                India's most aggressive prices on viral gadgets. Join the club of 10k+ smart shoppers.
+                            </p>
                         </div>
 
-                        <div className="flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md px-4 py-2 rounded-full">
-                            <div className="w-2 h-2 rounded-full bg-[#f7a221] animate-pulse"></div>
-                            <span className="text-[9px] font-black text-white uppercase tracking-wider">Live Ecosystem</span>
+                        <div className="flex flex-wrap gap-4 relative z-10 mt-8">
+                            <button className="w-full md:w-auto px-10 py-5 bg-[#f7a221] text-black font-black rounded-2xl hover:bg-white transition-all duration-300 flex items-center justify-center gap-3 shadow-xl shadow-[#f7a221]/10 uppercase">
+                                SHOP THE SMARTER <ShoppingBag size={20} />
+                            </button>
+                            <button className="w-full md:w-auto px-8 py-5 bg-white/5 text-white  rounded-2xl hover:bg-white/10 transition-all border border-white/10 uppercase text-xs tracking-widest">
+                                BABA'S CATALOG
+                            </button>
                         </div>
-                    </div>
 
-                    <div className="space-y-4">
-                        <h1 className="text-5xl md:text-8xl font-black leading-[0.85] tracking-tighter text-white uppercase">
-                            SHOP SMART.<br />
-                            <span className="text-transparent" style={{ WebkitTextStroke: '2px #f7a221' }}>
-                                LIVE BIG.
-                            </span>
-                        </h1>
-                        <p className="text-gray-400 text-sm md:text-lg max-w-xl leading-relaxed font-semibold">
-                            India's #1 destination for viral innovations. Premium quality tools and gadgets at 
-                            <span className="text-white"> wholesale prices.</span>
-                        </p>
-                    </div>
 
-                    <div className="flex flex-wrap gap-4 pt-2">
-                        <button
-                            className="bg-[#f7a221] hover:bg-white text-black font-black py-4 px-10 rounded-full text-sm transition-all duration-300 flex items-center gap-3 shadow-[0_10px_20px_-5px_rgba(247,162,33,0.3)] hover:shadow-white/10"
-                        >
-                            <ShoppingBag size={18} /> SHOP NOW
-                        </button>
-                        <button
-                            className="bg-transparent border-2 border-white/10 text-white font-black px-8 py-4 rounded-full text-[10px] tracking-[0.2em] transition-all duration-300 flex items-center gap-2 hover:bg-white/5"
-                        >
-                            VIEW CATALOG <ArrowRight size={16} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Visual Side (KEPT: Parallax Logic) */}
-                <div className="hidden md:flex items-center justify-end relative pr-12 h-full">
-                    <div className="relative w-full max-w-[320px] h-full flex items-center justify-center">
+{/* RIGHT COLUMN: INTERACTIVE GRID */}
+                    <div style={{border:""}} className="lg:col-span-5 flex flex-col gap-0 lg:gap-6 mt-5">
                         
-                        {/* Trending Card */}
-                        <div
-                            style={{ 
-                                transform: `translate(${parallaxTransform.layer2X * 0.5}px, ${parallaxTransform.layer2Y * 0.5}px)`
-                            }}
-                            className="absolute top-10 right-0 bg-white/5 backdrop-blur-xl p-5 rounded-2xl z-30 border border-white/10 transition-transform duration-200"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="bg-[#f7a221] p-3 rounded-xl shadow-lg shadow-[#f7a221]/20">
-                                    <TrendingUp className="text-black" size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Trending</p>
-                                    <p className="text-xl font-black text-white">#1 STYLE</p>
-                                </div>
-                            </div>
-                        </div>
+                        {/* 1. HOT DROPS CARD */}
+                        <div className="flex-1 bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-default relative overflow-hidden">
+                            <div className="relative z-10">
+                                {/* <div className="bg-[#f7a221]/10 text-[#f7a221] p-3 rounded-2xl w-fit mb-4">
+                                    <Flame size={24} fill="currentColor" />
+                                </div> */}
+<div className="bg-[#f7a221]/10 text-[#f7a221] p-3 rounded-2xl w-fit mb-4 mx-auto">
+    <Flame size={24} fill="currentColor" />
+</div>
 
-                        {/* Flash Sale Card */}
-                        <div
-                            style={{ 
-                                transform: `translate(${parallaxTransform.layer1X * 0.5}px, ${parallaxTransform.layer1Y * 0.5}px)`
-                            }}
-                            className="absolute bottom-10 left-0 bg-black/40 backdrop-blur-xl p-5 rounded-2xl z-20 border border-[#f7a221]/20 transition-transform duration-200"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white p-3 rounded-xl">
-                                    <Flame className="text-black" size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black text-[#f7a221] uppercase tracking-wider">Flash Sale</p>
-                                    <p className="text-xl font-black text-white">70% OFF</p>
-                                </div>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Hot Drops</h3>
+                                <p className="text-gray-500 text-[14px] font-bold uppercase tracking-widest mt-1">Refreshed Every 24h</p>
                             </div>
-                        </div>
+        {/* <div className="text-7xl md:text-9xl font-black text-[#f7a221] hover-fuse transition-all duration-300 select-none cursor-default">
+    #01
+</div> */}
 
-                        {/* Rating Badge */}
-                        <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="flex items-center gap-1 text-[#f7a221]">
+  <div className="parent-card bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center relative overflow-hidden group hover:border-[#f7a221]/40 transition-all duration-500 cursor-pointer">
+                                <div className="relative flex items-center justify-center mb-6 h-12 w-full">
+                              
+                                    <Trophy className="trophy-side trophy-side-left absolute text-[#f7a221]/40" size={28} />
+                              
+                                    <Trophy className="trophy-main text-[#f7a221] z-10" size={40} />
+                            
+                                    <Trophy className="trophy-side trophy-side-right absolute text-[#f7a221]/40" size={28} />
+                                </div>
+                                <p className="text-4xl font-black text-white group-hover:text-[#f7a221] hover-fuse transition-colors">10K+</p>
+                                <p className="text-[14px] font-bold text-gray-500 uppercase tracking-widest mt-1">Looters Joined</p>
+                            </div>
+                        
+
+
+
+
+   <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center group">
+                                <div className="flex gap-1 mb-4">
                                     {[...Array(5)].map((_, i) => (
-                                        <Star key={i} size={16} fill="currentColor" />
+                                        <Star 
+                                            key={i} 
+                                            size={16} 
+                                            fill="currentColor" 
+                                            className="star-animate"
+                                            style={{ animationDelay: `${i * 0.15}s` }} 
+                                        />
                                     ))}
                                 </div>
-                                <p className="text-5xl font-black text-white">4.9</p>
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Verified Trust</p>
+                                <p className="text-4xl font-black text-white">4.9</p>
+                                <p className="text-[14px] font-bold text-gray-500 uppercase tracking-widest mt-1">Customer Rating</p>
                             </div>
+
                         </div>
+
+                     
+
+        
+                    
+                    </div>
+
+
+
+
+
+
+
+{/* RIGHT COLUMN: INTERACTIVE GRID */}
+                    
+
+
+
+
+
+
+
+                    </div>
+
+                    {/* RIGHT COLUMN: INTERACTIVE GRID */}
+                    <div className="lg:col-span-5 flex flex-col gap-4 lg:gap-6">
+                        <img style={{borderRadius:"20px"}} width="100%" src={logo} alt="" />
+                       
+
+                        {/* 3. PROFESSIONAL WHATSAPP VIP CARD */}
+                        <a 
+                        
+                             onClick={() => window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative bg-gradient-to-br from-[#0d1b15] to-[#050505] border border-[#25d366]/20 rounded-[2.5rem] p-8 group cursor-pointer overflow-hidden transition-all hover:border-[#25d366]/50"
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#25d366]/5 blur-[80px] rounded-full group-hover:bg-[#25d366]/10 transition-all duration-700" />
+                            
+                            <div className="flex justify-between items-start mb-6 relative z-10">
+                                <div className="p-4 bg-[#25d366] text-black rounded-2xl shadow-lg shadow-[#25d366]/20">
+                                 
+                                       <WhatsAppIcon size={32} fill="currentColor" />
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="flex h-2 w-2 rounded-full bg-[#25d366] animate-ping mb-2"></span>
+                                    <p className="text-[10px] font-black text-[#25d366] uppercase tracking-[0.2em] bg-[#25d366]/10 px-3 py-1 rounded-full border border-[#25d366]/20">VIP Portal</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 relative z-10">
+                                <h4 className="text-3xl font- text-white uppercase tracking-tight">VIP WHATSAPP ACCESS</h4>
+                                <p className="text-gray-400 text-xs leading-relaxed max-w-[280px] font-medium">
+                                    Join <span className="text-white font-bold">5,000+ members</span> and get instant loot alerts before items sell out on the site.
+                                </p>
+                            </div>
+
+                            <div className="mt-8 flex items-center gap-3 text-[#25d366]  text-xs uppercase tracking-[0.2em] group-hover:gap-5 transition-all relative z-10">
+                                CLAIM YOUR INVITE <ArrowRight size={16} />
+                            </div>
+                        </a>
                     </div>
                 </div>
-            </div>
-        </section>
+
+                {/* SCROLL INDICATOR */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden lg:flex flex-col items-center gap-2 opacity-20">
+                    <p className="text-[9px] font-bold text-white uppercase tracking-[0.5em]">Loot Protocol</p>
+                    <div className="w-[1px] h-12 bg-gradient-to-b from-white to-transparent" />
+                </div>
+            </section>
+
+
+            <style jsx>{`
+              .hover-fuse {
+  animation: flicker 1.5s infinite;
+}
+            `}</style>
+        </>
     );
 };
 
@@ -205,442 +233,357 @@ export default HeroSection;
 
 
 
-// import React, { useState, useEffect, useCallback, useRef } from 'react';
-// import { Sparkles, ArrowRight, Star, Zap, TrendingUp, Flame, ShoppingBag } from 'lucide-react';
+
+
+
+
+
+// import React, { useState, useRef } from 'react';
+// import { ShoppingBag, Zap, Flame, Trophy, ArrowRight, Star, MessageSquare } from 'lucide-react';
+// import logo from "../../assets/logo.jpg";
 
 // const HeroSection = () => {
-//     // Use refs instead of state for performance-critical values
-//     const mousePosRef = useRef({ x: 0, y: 0 });
-//     const smoothPosRef = useRef({ x: 0, y: 0 });
-//     const animationFrameRef = useRef(null);
-//     const lastUpdateTimeRef = useRef(0);
+//     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+//     const sectionRef = useRef(null);
+//     const phoneNumber = "919320001717";
+//     const message = "Hello! Baba, let me into the Loot! I want VIP access. 🔥"; 
     
-//     // State for non-critical UI updates
-//     const [gradientIndex, setGradientIndex] = useState(0);
-//     const [parallaxTransform, setParallaxTransform] = useState({ x: 0, y: 0 });
-
-//     // Throttled mouse movement handler (runs at 30fps max)
-//     const handleMouseMove = useCallback((e) => {
-//         const now = Date.now();
-//         // Throttle to 30fps (33ms between updates)
-//         if (now - lastUpdateTimeRef.current < 33) return;
-        
-//         lastUpdateTimeRef.current = now;
-        
-//         const { clientX, clientY } = e;
-//         const { innerWidth, innerHeight } = window;
-        
-//         mousePosRef.current = {
-//             x: (clientX / innerWidth) - 0.5,
-//             y: (clientY / innerHeight) - 0.5
-//         };
-//     }, []);
-
-//     // Single optimized animation loop
-//     useEffect(() => {
-//         const updateParallax = () => {
-//             // Smooth interpolation with damping
-//             smoothPosRef.current = {
-//                 x: smoothPosRef.current.x + (mousePosRef.current.x - smoothPosRef.current.x) * 0.08,
-//                 y: smoothPosRef.current.y + (mousePosRef.current.y - smoothPosRef.current.y) * 0.08
-//             };
-
-//             // Calculate transforms - reduced movement range for better performance
-//             const layer1X = smoothPosRef.current.x * 40;  // Reduced from 120
-//             const layer1Y = smoothPosRef.current.y * 40;  // Reduced from 120
-//             const layer2X = smoothPosRef.current.x * -20; // Reduced from -60
-//             const layer2Y = smoothPosRef.current.y * -20; // Reduced from -60
-
-//             // Batch update with requestAnimationFrame
-//             setParallaxTransform({
-//                 layer1X, layer1Y, layer2X, layer2Y
-//             });
-
-//             animationFrameRef.current = requestAnimationFrame(updateParallax);
-//         };
-
-//         animationFrameRef.current = requestAnimationFrame(updateParallax);
-
-//         return () => {
-//             if (animationFrameRef.current) {
-//                 cancelAnimationFrame(animationFrameRef.current);
-//             }
-//         };
-//     }, []);
-
-//     // Debounced gradient animation (every 5 seconds)
-//     useEffect(() => {
-//         const gradientInterval = setInterval(() => {
-//             setGradientIndex(prev => (prev + 1) % 4);
-//         }, 5000);
-
-//         return () => clearInterval(gradientInterval);
-//     }, []);
-
-//     // Gradient configurations
-//     const gradients = [
-//         "radial-gradient(circle at 20% 50%, rgba(9,205,255,0.2) 0%, transparent 50%)",
-//         "radial-gradient(circle at 80% 50%, rgba(227,30,36,0.15) 0%, transparent 50%)",
-//         "radial-gradient(circle at 50% 80%, rgba(9,205,255,0.2) 0%, transparent 50%)",
-//         "radial-gradient(circle at 20% 50%, rgba(9,205,255,0.2) 0%, transparent 50%)"
-//     ];
-
-//     return (
-//         <section
-//             onMouseMove={handleMouseMove}
-//             className="relative min-h-[600px] md:min-h-[550px] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden group bg-gradient-to-br from-primary via-[#1a2a4e] to-primary"
-//             style={{
-//                 willChange: 'transform', // Hint browser for optimization
-//                 transform: 'translateZ(0)' // Force GPU acceleration
-//             }}
-//         >
-//             {/* Static Background with reduced effects */}
-//             <div className="absolute inset-0 overflow-hidden">
-//                 {/* Simplified gradient - no transform */}
-//                 <div 
-//                     style={{ 
-//                         background: gradients[gradientIndex],
-//                         transition: 'background 1.5s ease'
-//                     }}
-//                     className="absolute inset-0"
-//                 />
-
-//                 {/* Static blurred orbs - no animation */}
-//                 <div className="absolute -top-10 -left-10 w-[60%] h-[150%] bg-accent/20 rounded-full blur-[100px] opacity-30" />
-//                 <div className="absolute -bottom-10 -right-10 w-[70%] h-[150%] bg-secondary/15 rounded-full blur-[120px] opacity-30" />
-
-//                 {/* Very subtle grid pattern */}
-//                 <div className="absolute inset-0 opacity-[0.02] bg-[size:80px_80px]"
-//                     style={{
-//                         backgroundImage: `linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-//                                         linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`
-//                     }}>
-//                 </div>
-//             </div>
-
-//             <div className="relative z-10 grid md:grid-cols-[1.2fr_0.8fr] h-full min-h-[600px] md:min-h-[550px] items-center">
-//                 {/* Content Side */}
-//                 <div className="flex flex-col justify-center p-6 md:p-12 md:pl-16 space-y-4 md:space-y-3">
-//                     <div className="flex items-center gap-6 flex-wrap">
-//                         <div className="flex items-center gap-2 bg-gradient-to-r from-accent/20 to-secondary/20 backdrop-blur-md border border-white/10 text-accent text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.3em]">
-//                             <Zap size={12} className="text-secondary" /> Viral Innovations
-//                         </div>
-
-//                         <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full">
-//                             <div className="w-2 h-2 rounded-full bg-red-500"></div>
-//                             <span className="text-[9px] font-black text-white uppercase tracking-wider">2.4K Online</span>
-//                         </div>
-//                     </div>
-
-//                     <div className="space-y-2">
-//                         <h1 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-[-0.03em] text-white">
-//                             SHOP SMART.{' '}
-//                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-white to-secondary">
-//                                 LIVE BIG.
-//                             </span>
-//                         </h1>
-//                         <p className="text-gray-400 text-sm md:text-base max-w-xl leading-relaxed font-semibold">
-//                             India's #1 destination for viral gadgets & premium tools at wholesale prices.
-//                         </p>
-//                     </div>
-
-//                     <div className="flex flex-wrap gap-3 pt-2">
-//                         <button
-//                             className="bg-secondary hover:bg-[#c2181d] text-white font-black py-3 px-8 rounded-full text-sm transition-colors duration-200 flex items-center gap-3"
-//                         >
-//                             <ShoppingBag size={18} /> SHOP NOW
-//                         </button>
-//                         <button
-//                             className="bg-transparent border-2 border-white/10 text-white font-black px-6 py-3 rounded-full text-xs tracking-[0.15em] transition-colors duration-200 flex items-center gap-2 hover:bg-white/5"
-//                         >
-//                             VIEW CATALOG <ArrowRight size={14} />
-//                         </button>
-//                     </div>
-//                 </div>
-
-//                 {/* Visual Side - Optimized */}
-//                 <div className="hidden md:flex items-center justify-end relative pr-12 h-full">
-//                     <div className="relative w-full max-w-[300px] h-full flex items-center justify-center">
-//                         {/* Static cards with minimal transforms */}
-//                         <div
-//                             style={{ 
-//                                 transform: `translate(${parallaxTransform.layer2X * 0.5}px, ${parallaxTransform.layer2Y * 0.5}px)`
-//                             }}
-//                             className="absolute top-4 right-0 bg-white/10 backdrop-blur-sm p-4 rounded-2xl z-30 border border-white/20 cursor-pointer"
-//                         >
-//                             <div className="flex items-center gap-3">
-//                                 <div className="bg-gradient-to-br from-accent to-blue-500 p-3 rounded-xl">
-//                                     <TrendingUp className="text-white" size={20} />
-//                                 </div>
-//                                 <div>
-//                                     <p className="text-[9px] font-black text-gray-300 uppercase tracking-wider">Trending</p>
-//                                     <p className="text-xl font-black text-white">#1 Product</p>
-//                                 </div>
-//                             </div>
-//                         </div>
-
-//                         <div
-//                             style={{ 
-//                                 transform: `translate(${parallaxTransform.layer1X * 0.5}px, ${parallaxTransform.layer1Y * 0.5}px)`
-//                             }}
-//                             className="absolute bottom-4 left-0 bg-black/20 backdrop-blur-sm p-4 rounded-2xl z-20 border border-white/10 cursor-pointer"
-//                         >
-//                             <div className="flex items-center gap-3">
-//                                 <div className="bg-gradient-to-br from-secondary to-red-600 p-3 rounded-xl">
-//                                     <Flame className="text-white" size={20} />
-//                                 </div>
-//                                 <div>
-//                                     <p className="text-[9px] font-black text-gray-300 uppercase tracking-wider">Flash Sale</p>
-//                                     <p className="text-lg font-black text-white">70% OFF</p>
-//                                 </div>
-//                             </div>
-//                         </div>
-
-//                         {/* Center Rating Badge - Static */}
-//                         <div className="bg-white/10 backdrop-blur-sm p-5 rounded-2xl border border-white/20">
-//                             <div className="flex flex-col items-center gap-2">
-//                                 <div className="flex items-center gap-1 text-yellow-400">
-//                                     {[...Array(5)].map((_, i) => (
-//                                         <Star key={i} size={14} fill="currentColor" />
-//                                     ))}
-//                                 </div>
-//                                 <p className="text-2xl font-black text-white">4.9</p>
-//                                 <p className="text-[9px] font-black text-gray-300 uppercase tracking-wider">12.5K Reviews</p>
-//                             </div>
-//                         </div>
-//                     </div>
-//                 </div>
-//             </div>
-//         </section>
+//     // WhatsApp SVG
+//     const WhatsAppIcon = () => (
+//         <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+//             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+//         </svg>
 //     );
-// };
-
-// export default HeroSection;
-
-// import React from 'react';
-// import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-// import { Sparkles, ArrowRight, Star, Zap, TrendingUp, Flame, ShoppingBag } from 'lucide-react';
-
-// const HeroSection = () => {
-//     // Mouse Parallax Logic
-//     const mouseX = useMotionValue(0);
-//     const mouseY = useMotionValue(0);
 
 //     const handleMouseMove = (e) => {
-//         const { clientX, clientY } = e;
-//         const { innerWidth, innerHeight } = window;
-//         mouseX.set((clientX / innerWidth) - 0.5);
-//         mouseY.set((clientY / innerHeight) - 0.5);
+//         if (!sectionRef.current) return;
+//         const rect = sectionRef.current.getBoundingClientRect();
+//         setMousePos({
+//             x: e.clientX - rect.left,
+//             y: e.clientY - rect.top,
+//         });
 //     };
 
-//     const springConfig = { damping: 30, stiffness: 200 };
-//     const smoothX = useSpring(mouseX, springConfig);
-//     const smoothY = useSpring(mouseY, springConfig);
-
-//     // Parallax Coefficients for different layers
-//     const layer1X = useTransform(smoothX, [-0.5, 0.5], [-60, 60]);
-//     const layer1Y = useTransform(smoothY, [-0.5, 0.5], [-60, 60]);
-
-//     const layer2X = useTransform(smoothX, [-0.5, 0.5], [30, -30]);
-//     const layer2Y = useTransform(smoothY, [-0.5, 0.5], [30, -30]);
-
 //     return (
-//         <section
-//             onMouseMove={handleMouseMove}
-//             className="relative min-h-[600px] md:min-h-[550px] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden group shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] bg-gradient-to-br from-primary via-[#1a2a4e] to-primary"
-//         >
-//             {/* Animated Gradient Background */}
-//             <div className="absolute inset-0 overflow-hidden">
-//                 {/* Vibrant Animated Mesh Gradient */}
-//                 <motion.div
-//                     style={{ x: layer2X, y: layer2Y }}
-//                     animate={{
-//                         background: [
-//                             "radial-gradient(circle at 20% 50%, rgba(9,205,255,0.3) 0%, transparent 50%)",
-//                             "radial-gradient(circle at 80% 50%, rgba(227,30,36,0.25) 0%, transparent 50%)",
-//                             "radial-gradient(circle at 50% 80%, rgba(9,205,255,0.3) 0%, transparent 50%)",
-//                             "radial-gradient(circle at 20% 50%, rgba(9,205,255,0.3) 0%, transparent 50%)"
-//                         ]
+//         <>
+//             <style>
+//                 {`
+//                 /* FUSE BLINK EFFECT */
+//                 @keyframes fuseBlink {
+//                     0%, 100% { opacity: 1; text-shadow: 0 0 20px rgba(247,162,33,0.8); }
+//                     10% { opacity: 0.4; text-shadow: none; }
+//                     12% { opacity: 1; text-shadow: 0 0 20px rgba(247,162,33,0.8); }
+//                     20% { opacity: 0.2; text-shadow: none; }
+//                     22% { opacity: 1; }
+//                 }
+//                 .hover-fuse:hover { animation: fuseBlink 0.4s infinite; }
+
+//                 /* STAR WAVE ANIMATION */
+//                 @keyframes starWave {
+//                     0%, 100% { transform: translateY(0); opacity: 1; color: #f7a221; }
+//                     50% { transform: translateY(8px); opacity: 0.5; color: #ffffff; }
+//                 }
+//                 .star-animate { animation: starWave 1.5s ease-in-out infinite; }
+                
+//                 /* TROPHY BEND TRANSITIONS */
+//                 .trophy-main { transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+//                 .trophy-side { opacity: 0; transition: all 0.4s ease-out; transform: scale(0) translateY(20px); }
+//                 .parent-card:hover .trophy-side-left { opacity: 1; transform: scale(1) translateX(-35px) translateY(-10px) rotate(-45deg); }
+//                 .parent-card:hover .trophy-side-right { opacity: 1; transform: scale(1) translateX(35px) translateY(-10px) rotate(45deg); }
+//                 .parent-card:hover .trophy-main { transform: translateY(-15px) scale(1.1); }
+
+//                 /* LOGO ANIMATIONS */
+//                 @keyframes floatGlow {
+//                     0%, 100% { filter: drop-shadow(0 10px 15px rgba(247,162,33,0.3)) brightness(1); transform: translateY(0) scale(1); }
+//                     50% { filter: drop-shadow(0 25px 25px rgba(247,162,33,0.6)) brightness(1.2); transform: translateY(-10px) scale(1.02); }
+//                 }
+//                 .logo-float { animation: floatGlow 4s ease-in-out infinite; }
+
+//                 @keyframes glitch {
+//                     0%, 100% { clip-path: inset(0 0 0 0); transform: skew(0deg); }
+//                     5% { clip-path: inset(2px 0 5px 0); transform: skew(2deg); }
+//                     10% { clip-path: inset(5px 0 2px 0); transform: skew(-2deg); }
+//                     15% { clip-path: inset(0 0 0 0); transform: skew(0deg); }
+//                 }
+//                 .logo-glitch:hover { animation: glitch 0.5s infinite; }
+
+//                 @keyframes borderRotate {
+//                     0% { transform: rotate(0deg); }
+//                     100% { transform: rotate(360deg); }
+//                 }
+//                 .logo-border-rotate { animation: borderRotate 8s linear infinite; }
+
+//                 /* WAVY CLIP PATH */
+//                 .hero-wavy-clip {
+//                     clip-path: polygon(0% 0%, 100% 0%, 100% 85%, 95% 88%, 90% 92%, 85% 95%, 80% 97%, 75% 98%, 70% 99%, 65% 99.5%, 60% 100%, 55% 99.8%, 50% 99%, 45% 98%, 40% 96%, 35% 93%, 30% 90%, 25% 87%, 20% 85%, 15% 83%, 10% 82%, 5% 81%, 0% 80%);
+//                 }
+
+//                 /* CORNER ACCENTS */
+//                 .corner-accent {
+//                     position: absolute;
+//                     width: 60px;
+//                     height: 60px;
+//                     border: 2px solid #f7a221;
+//                     opacity: 0.3;
+//                     transition: all 0.3s ease;
+//                 }
+//                 .corner-accent:hover { opacity: 0.8; transform: scale(1.1); }
+//                 .corner-tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+//                 .corner-tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+//                 .corner-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+//                 .corner-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+//                 `}
+//             </style>
+
+//             <section 
+//                 ref={sectionRef}
+//                 onMouseMove={handleMouseMove}
+//                 className="relative w-full min-h-screen lg:min-h-[90vh] p-4 md:p-8 lg:p-12 bg-[#050505] overflow-hidden flex flex-col justify-center hero-wavy-clip"
+//             >
+//                 {/* INTERACTIVE GLOW */}
+//                 <div 
+//                     className="absolute inset-0 z-0 pointer-events-none opacity-40"
+//                     style={{
+//                         background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(247, 162, 33, 0.12), transparent 80%)`
 //                     }}
-//                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-//                     className="absolute inset-0"
 //                 />
 
-//                 {/* Floating Orbs - More Visible */}
-//                 <motion.div
-//                     style={{ x: layer1X, y: layer1Y }}
-//                     animate={{
-//                         scale: [1, 1.3, 1],
-//                         opacity: [0.3, 0.5, 0.3],
-//                     }}
-//                     transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-//                     className="absolute -top-10 -left-10 w-[60%] h-[150%] bg-accent/30 rounded-full blur-[120px]"
-//                 />
-//                 <motion.div
-//                     style={{ x: useTransform(smoothX, [-0.5, 0.5], [40, -40]), y: useTransform(smoothY, [-0.5, 0.5], [40, -40]) }}
-//                     animate={{
-//                         scale: [1, 1.2, 1],
-//                         opacity: [0.2, 0.4, 0.2],
-//                     }}
-//                     transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-//                     className="absolute -bottom-10 -right-10 w-[70%] h-[150%] bg-secondary/20 rounded-full blur-[140px]"
-//                 />
-
-//                 {/* Additional Accent Glow */}
-//                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-gradient-to-r from-accent/10 via-transparent to-secondary/10 rounded-full blur-3xl"></div>
-
-//                 {/* Grid Pattern Overlay */}
-//                 <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-//             </div>
-
-//             <div className="relative z-10 grid md:grid-cols-[1.2fr_0.8fr] h-full min-h-[600px] md:min-h-[550px] items-center">
-//                 {/* Content Side - Compact & Punchy */}
-//                 <div className="flex flex-col justify-center p-6 md:p-12 md:pl-16 space-y-4 md:space-y-3">
-//                     <div className="flex items-center gap-6 flex-wrap">
-//                         {/* Compact Badge */}
-//                         <motion.div
-//                             initial={{ opacity: 0, scale: 0.8 }}
-//                             animate={{ opacity: 1, scale: 1 }}
-//                             className="flex items-center gap-2 bg-gradient-to-r from-accent/20 to-secondary/20 backdrop-blur-xl border border-white/10 text-accent text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.3em] shadow-xl"
-//                         >
-//                             <Zap size={12} className="text-secondary animate-pulse" /> Viral Innovations
-//                         </motion.div>
-
-//                         {/* Live Stats Badge */}
-//                         <motion.div
-//                             initial={{ opacity: 0, x: -20 }}
-//                             animate={{ opacity: 1, x: 0 }}
-//                             transition={{ delay: 0.2 }}
-//                             className="flex items-center gap-2 glass-dark px-4 py-2 rounded-full"
-//                         >
-//                             <div className="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-//                             <span className="text-[9px] font-black text-white uppercase tracking-wider">2.4K Online</span>
-//                         </motion.div>
-//                     </div>
-
-//                     <div className="space-y-2">
-//                         <motion.h1
-//                             initial={{ opacity: 0, y: 20 }}
-//                             animate={{ opacity: 1, y: 0 }}
-//                             transition={{ duration: 0.6, ease: "circOut" }}
-//                             className="text-4xl md:text-6xl font-black leading-[0.9] tracking-[-0.03em] text-white"
-//                         >
-//                             SHOP SMART.{' '}
-//                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-white to-secondary animate-mesh bg-[length:300%_auto] drop-shadow-[0_0_30px_rgba(9,205,255,0.3)]">
-//                                 LIVE BIG.
-//                             </span>
-//                         </motion.h1>
-//                         <motion.p
-//                             initial={{ opacity: 0 }}
-//                             animate={{ opacity: 1 }}
-//                             transition={{ delay: 0.3, duration: 0.8 }}
-//                             className="text-gray-400 text-sm md:text-base max-w-xl leading-relaxed font-semibold"
-//                         >
-//                             India's #1 destination for viral gadgets & premium tools at wholesale prices.
-//                         </motion.p>
-//                     </div>
-
-//                     <motion.div
-//                         initial={{ opacity: 0, y: 20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         transition={{ delay: 0.5 }}
-//                         className="flex flex-wrap gap-3 pt-2"
-//                     >
-//                         <motion.button
-//                             whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(227,30,36,0.5)" }}
-//                             whileTap={{ scale: 0.95 }}
-//                             className="btn-premium flex items-center gap-3 py-3 px-8 text-sm shadow-[0_15px_30px_-5px_rgba(227,30,36,0.4)]"
-//                         >
-//                             <ShoppingBag size={18} /> SHOP NOW
-//                         </motion.button>
-//                         <motion.button
-//                             whileHover={{ backgroundColor: "rgba(255,255,255,0.1)", borderColor: "rgba(9,205,255,0.5)" }}
-//                             className="bg-transparent border-2 border-white/10 text-white font-black px-6 py-3 rounded-full text-xs tracking-[0.15em] transition-all flex items-center gap-2"
-//                         >
-//                             VIEW CATALOG <ArrowRight size={14} />
-//                         </motion.button>
-//                     </motion.div>
+//                 {/* WAVY BACKGROUND LINES */}
+//                 <div className="absolute inset-0 opacity-10">
+//                     <svg className="absolute w-full h-full" viewBox="0 0 1200 800" preserveAspectRatio="none">
+//                         <path d="M0,300 Q300,250 600,300 T1200,300" stroke="#f7a221" fill="none" strokeWidth="2"/>
+//                         <path d="M0,400 Q300,350 600,400 T1200,400" stroke="#f7a221" fill="none" strokeWidth="2"/>
+//                         <path d="M0,500 Q300,450 600,500 T1200,500" stroke="#f7a221" fill="none" strokeWidth="2"/>
+//                     </svg>
 //                 </div>
 
-//                 {/* Visual Side - Compact Interactive Elements */}
-//                 <div className="hidden md:flex items-center justify-end relative pr-12 h-full">
-//                     {/* Floating Interactive Cards */}
-//                     <div className="relative w-full max-w-[300px] h-full flex items-center justify-center">
-//                         {/* Card 1 - Trending */}
-//                         <motion.div
-//                             style={{ x: layer1X, y: layer1Y }}
-//                             whileHover={{ scale: 1.05, rotate: 2 }}
-//                             className="absolute top-4 right-0 glass-card p-4 rounded-2xl z-30 shadow-2xl border-white/20 cursor-pointer"
-//                         >
-//                             <div className="flex items-center gap-3">
-//                                 <div className="bg-gradient-to-br from-accent to-blue-500 p-3 rounded-xl">
-//                                     <TrendingUp className="text-white" size={20} />
+//                 {/* CORNER ACCENTS */}
+//                 <div className="corner-accent corner-tl"></div>
+//                 <div className="corner-accent corner-tr"></div>
+//                 <div className="corner-accent corner-bl"></div>
+//                 <div className="corner-accent corner-br"></div>
+
+//                 <div className="relative z-10 max-w-[1500px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+                    
+//                     {/* LEFT COLUMN: MAIN CONTENT */}
+//                     <div className="lg:col-span-7 flex flex-col min-h-[500px] md:min-h-[600px] p-8 md:p-16 rounded-[3rem] bg-[#0a0a0a] border border-white/5 relative overflow-hidden group">
+//                         <div className="space-y-6 relative z-10">
+//                             <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+//                                 <span className="flex h-2 w-2 rounded-full bg-[#f7a221] animate-pulse"></span>
+//                                 <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Wholesale Kingdom</span>
+//                             </div>
+
+//                             <h1 className="text-6xl md:text-8xl lg:text-[5rem] font-black text-white leading-[0.8] tracking-tighter">
+//                                 SHOP SMART <br />
+//                                 <span className="text-transparent" style={{ WebkitTextStroke: '1.5px #f7a221'}}>LIVE BIG.</span>
+//                             </h1>
+                            
+//                             <p className="text-gray-400 text-base md:text-xl max-w-md font-medium leading-relaxed">
+//                                 India's most aggressive prices on viral gadgets. Join the club of 10k+ smart shoppers.
+//                             </p>
+//                         </div>
+
+//                         <div className="flex flex-wrap gap-4 relative z-10 mt-8">
+//                             <button className="w-full md:w-auto px-10 py-5 bg-[#f7a221] text-black font-black rounded-2xl hover:bg-white transition-all duration-300 flex items-center justify-center gap-3 shadow-xl shadow-[#f7a221]/10 uppercase">
+//                                 SHOP THE SMARTER <ShoppingBag size={20} />
+//                             </button>
+//                             <button className="w-full md:w-auto px-8 py-5 bg-white/5 text-white rounded-2xl hover:bg-white/10 transition-all border border-white/10 uppercase text-xs tracking-widest">
+//                                 BABA'S CATALOG
+//                             </button>
+//                         </div>
+
+//                         {/* INTERACTIVE GRID */}
+//                         <div className="lg:col-span-5 flex flex-col gap-0 lg:gap-6 mt-5">
+                            
+//                             {/* HOT DROPS CARD */}
+//                             <div className="flex-1 bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-default relative overflow-hidden">
+//                                 <div className="relative z-10">
+//                                     <div className="bg-[#f7a221]/10 text-[#f7a221] p-3 rounded-2xl w-fit mb-4 mx-auto">
+//                                         <Flame size={24} fill="currentColor" />
+//                                     </div>
+
+//                                     <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Hot Drops</h3>
+//                                     <p className="text-gray-500 text-[14px] font-bold uppercase tracking-widest mt-1">Refreshed Every 24h</p>
 //                                 </div>
-//                                 <div>
-//                                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Trending</p>
-//                                     <p className="text-xl font-black text-white">#1 Product</p>
+
+//                                 <div className="parent-card bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center relative overflow-hidden group hover:border-[#f7a221]/40 transition-all duration-500 cursor-pointer">
+//                                     <div className="relative flex items-center justify-center mb-6 h-12 w-full">
+//                                         <Trophy className="trophy-side trophy-side-left absolute text-[#f7a221]/40" size={28} />
+//                                         <Trophy className="trophy-main text-[#f7a221] z-10" size={40} />
+//                                         <Trophy className="trophy-side trophy-side-right absolute text-[#f7a221]/40" size={28} />
+//                                     </div>
+//                                     <p className="text-4xl font-black text-white group-hover:text-[#f7a221] hover-fuse transition-colors">10K+</p>
+//                                     <p className="text-[14px] font-bold text-gray-500 uppercase tracking-widest mt-1">Looters Joined</p>
+//                                 </div>
+
+//                                 <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center group">
+//                                     <div className="flex gap-1 mb-4">
+//                                         {[...Array(5)].map((_, i) => (
+//                                             <Star 
+//                                                 key={i} 
+//                                                 size={16} 
+//                                                 fill="currentColor" 
+//                                                 className="star-animate"
+//                                                 style={{ animationDelay: `${i * 0.15}s` }} 
+//                                             />
+//                                         ))}
+//                                     </div>
+//                                     <p className="text-4xl font-black text-white">4.9</p>
+//                                     <p className="text-[14px] font-bold text-gray-500 uppercase tracking-widest mt-1">Customer Rating</p>
 //                                 </div>
 //                             </div>
-//                         </motion.div>
+//                         </div>
+//                     </div>
 
-//                         {/* Card 2 - Flash Sale */}
-//                         <motion.div
-//                             style={{ x: layer2X, y: layer2Y }}
-//                             whileHover={{ scale: 1.05, rotate: -2 }}
-//                             className="absolute bottom-4 left-0 glass-dark p-4 rounded-2xl z-20 shadow-2xl border-white/10 cursor-pointer"
-//                         >
-//                             <div className="flex items-center gap-3">
-//                                 <div className="bg-gradient-to-br from-secondary to-red-600 p-3 rounded-xl">
-//                                     <Flame className="text-white" size={20} />
-//                                 </div>
-//                                 <div>
-//                                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Flash Sale</p>
-//                                     <p className="text-lg font-black text-white">70% OFF</p>
+//                     {/* RIGHT COLUMN: ENHANCED CREATIVE LOGO */}
+//                     <div className="lg:col-span-5 flex flex-col gap-4 lg:gap-6">
+//                         {/* CREATIVE LOGO CONTAINER */}
+//                         <div className="relative group perspective">
+//                             {/* Rotating Border */}
+//                             <div className="absolute -inset-1 bg-gradient-to-r from-[#f7a221] via-white to-[#f7a221] rounded-[2.5rem] opacity-75 blur-lg group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                            
+//                             {/* Main Logo Container */}
+//                             <div className="relative bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] rounded-[2.5rem] p-1 overflow-hidden">
+//                                 {/* Animated Border */}
+//                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#f7a221] to-transparent opacity-30 group-hover:opacity-60 animate-logo-border-rotate"></div>
+                                
+//                                 {/* Logo Image with Creative Effects */}
+//                                 <div className="relative rounded-[2.3rem] overflow-hidden">
+//                                     {/* Floating Effect */}
+//                                     <img 
+//                                         src={logo} 
+//                                         alt="Logo" 
+//                                         className="w-full h-auto object-cover logo-float group-hover:scale-105 transition-transform duration-700"
+//                                     />
+                                    
+//                                     {/* Overlay Effects */}
+//                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                    
+//                                     {/* Hover Glitch Text */}
+//                                     <div className="absolute bottom-0 left-0 right-0 p-6 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500">
+//                                         <p className="text-white text-sm font-bold bg-black/50 backdrop-blur-sm p-3 rounded-xl inline-block">
+//                                             OFFER WALE BABA
+//                                         </p>
+//                                     </div>
 //                                 </div>
 //                             </div>
-//                         </motion.div>
-
-//                         {/* Center Rating Badge */}
-//                         <motion.div
-//                             initial={{ scale: 0 }}
-//                             animate={{ scale: 1 }}
-//                             transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
-//                             className="glass-card p-5 rounded-2xl shadow-2xl border-white/20"
-//                         >
-//                             <div className="flex flex-col items-center gap-2">
-//                                 <div className="flex items-center gap-1 text-yellow-400">
-//                                     {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-//                                 </div>
-//                                 <p className="text-2xl font-black text-white">4.9</p>
-//                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">12.5K Reviews</p>
+                            
+//                             {/* Decorative Elements */}
+//                             <div className="absolute -top-4 -right-4 w-20 h-20 bg-[#f7a221]/20 rounded-full blur-2xl group-hover:bg-[#f7a221]/30 transition-all duration-500"></div>
+//                             <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-[#f7a221]/20 rounded-full blur-2xl group-hover:bg-[#f7a221]/30 transition-all duration-500"></div>
+                            
+//                             {/* Floating Badges */}
+//                             <div className="absolute -top-6 -left-6 bg-[#f7a221] text-black px-4 py-2 rounded-full text-xs font-black rotate-[-15deg] shadow-2xl animate-bounce">
+//                                 🔥 HOT
 //                             </div>
-//                         </motion.div>
+//                             <div className="absolute -bottom-6 -right-6 bg-white text-black px-4 py-2 rounded-full text-xs font-black rotate-[15deg] shadow-2xl animate-pulse">
+//                                 VIP
+//                             </div>
+//                         </div>
 
-//                         {/* Floating Particles */}
-//                         {[...Array(3)].map((_, i) => (
-//                             <motion.div
-//                                 key={i}
-//                                 animate={{
-//                                     y: [0, -20, 0],
-//                                     opacity: [0.3, 0.6, 0.3],
-//                                 }}
-//                                 transition={{
-//                                     duration: 3 + i,
-//                                     repeat: Infinity,
-//                                     delay: i * 0.5,
-//                                 }}
-//                                 className="absolute w-2 h-2 bg-accent/50 rounded-full blur-sm"
-//                                 style={{
-//                                     left: `${30 + i * 25}%`,
-//                                     top: `${20 + i * 20}%`,
-//                                 }}
-//                             />
-//                         ))}
+//                         {/* WHATSAPP VIP CARD */}
+//                         <a 
+//                             onClick={() => window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank')}
+//                             target="_blank"
+//                             rel="noopener noreferrer"
+//                             className="relative bg-gradient-to-br from-[#0d1b15] to-[#050505] border border-[#25d366]/20 rounded-[2.5rem] p-8 group cursor-pointer overflow-hidden transition-all hover:border-[#25d366]/50"
+//                         >
+//                             <div className="absolute top-0 right-0 w-64 h-64 bg-[#25d366]/5 blur-[80px] rounded-full group-hover:bg-[#25d366]/10 transition-all duration-700" />
+                            
+//                             <div className="flex justify-between items-start mb-6 relative z-10">
+//                                 <div className="p-4 bg-[#25d366] text-black rounded-2xl shadow-lg shadow-[#25d366]/20">
+//                                     <WhatsAppIcon size={32} fill="currentColor" />
+//                                 </div>
+//                                 <div className="flex flex-col items-end">
+//                                     <span className="flex h-2 w-2 rounded-full bg-[#25d366] animate-ping mb-2"></span>
+//                                     <p className="text-[10px] font-black text-[#25d366] uppercase tracking-[0.2em] bg-[#25d366]/10 px-3 py-1 rounded-full border border-[#25d366]/20">VIP Portal</p>
+//                                 </div>
+//                             </div>
+
+//                             <div className="space-y-2 relative z-10">
+//                                 <h4 className="text-3xl text-white uppercase tracking-tight">VIP WHATSAPP ACCESS</h4>
+//                                 <p className="text-gray-400 text-xs leading-relaxed max-w-[280px] font-medium">
+//                                     Join <span className="text-white font-bold">5,000+ members</span> and get instant loot alerts before items sell out on the site.
+//                                 </p>
+//                             </div>
+
+//                             <div className="mt-8 flex items-center gap-3 text-[#25d366] text-xs uppercase tracking-[0.2em] group-hover:gap-5 transition-all relative z-10">
+//                                 CLAIM YOUR INVITE <ArrowRight size={16} />
+//                             </div>
+//                         </a>
 //                     </div>
 //                 </div>
-//             </div>
-//         </section>
+
+//                 {/* SCROLL INDICATOR */}
+//                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden lg:flex flex-col items-center gap-2 opacity-20">
+//                     <p className="text-[9px] font-bold text-white uppercase tracking-[0.5em]">Loot Protocol</p>
+//                     <div className="w-[1px] h-12 bg-gradient-to-b from-white to-transparent" />
+//                 </div>
+//             </section>
+//         </>
 //     );
 // };
 
 // export default HeroSection;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

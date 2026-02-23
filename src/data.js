@@ -1,14 +1,15 @@
 export const categories = [
-    { name: 'Smart Life Gadgets', img: 'https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Home & Kitchen', img: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Fashion World', img: 'https://images.unsplash.com/photo-1612817288484-6f916006741a?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Sports & Fitness', img: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Tours & Travels', img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Stationary', img: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Baby Items', img: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    { name: 'Car Accessories', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    // { name: 'Mix Items Daily use', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
-    // { name: 'Gifts', img: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=200&auto=format&fit=crop', color: 'bg-white' },
+    { name: 'Smart Life Gadgets', img: 'https://cdn.pixabay.com/photo/2017/07/31/21/59/apple-2561475_1280.jpg', color: 'bg-white' },
+    { name: 'Home & Kitchen', img: 'https://cdn.pixabay.com/photo/2014/08/08/21/32/food-mixer-413737_1280.jpg', color: 'bg-white' },
+    { name: 'Fashion World', img: 'https://cdn.pixabay.com/photo/2017/04/06/11/24/fashion-2208045_1280.jpg', color: 'bg-white' },
+    { name: 'Sports & Fitness', img: 'https://cdn.pixabay.com/photo/2020/04/09/16/55/gym-5022285_1280.jpg', color: 'bg-white' },
+    { name: 'Tours & Travels', img: 'https://cdn.pixabay.com/photo/2021/06/17/15/22/ship-6343771_1280.jpg', color: 'bg-white' },
+    { name: 'Stationary', img: 'https://cdn.pixabay.com/photo/2022/08/31/08/38/stationary-7422750_1280.jpg', color: 'bg-white' },
+    { name: 'Baby Items', img: 'https://cdn.pixabay.com/photo/2017/02/08/02/56/booties-2047596_1280.jpg', color: 'bg-white' },
+    { name: 'Car Accessories', img: 'https://cdn.pixabay.com/photo/2015/07/11/12/17/compressor-840706_1280.jpg', color: 'bg-white' },
+    { name: 'Mix Items Daily use', img: 'https://cdn.pixabay.com/photo/2017/12/28/18/33/hygiene-3045911_1280.jpg', color: 'bg-white' },
+    { name: 'Gifts', img: 'https://cdn.pixabay.com/photo/2017/06/20/08/50/christmas-hamper-2422306_1280.jpg', color: 'bg-white' },
+
 ];
 
 export const products = [

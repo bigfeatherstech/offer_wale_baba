@@ -5,6 +5,7 @@ import PriceBanners from '../components/Homecompo/PriceBanners';
 import TrustIndicators from '../components/Homecompo/TrustIndicators';
 import BestSellers from '../components/Homecompo/BestSellers';
 import PromoSection from '../components/Homecompo/PromoSection';
+import GiftPopup from '../components/USER_LOGIN_SEGMENT/GiftPopup';
 
 const Homepage = () => {
     return (
@@ -14,6 +15,7 @@ const Homepage = () => {
             </div>
 
             <main className="container mx-auto px-4 pt-12 pb-20 space-y-12">
+              
                 <Categories />
                 <PriceBanners />
                 <TrustIndicators />

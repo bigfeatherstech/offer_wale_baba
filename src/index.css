@@ -1,29 +1,58 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Serif:ital,opsz,wght@0,8..144,100..900;1,8..144,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Serif:ital,opsz,wght@0,8..144,100..900;1,8..144,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Serif:ital,opsz,wght@0,8..144,100..900;1,8..144,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+
+
 @import "tailwindcss";
-
-/* ✅ Tailwind v4 theme definition */
 @theme {
-  --font-display: "Inter", system-ui, sans-serif;
+  /* --font-display: "Inter", system-ui, sans-serif; */
 
-  --color-primary: #0a1128;
-  --color-primary-light: #1a2a4e;
-  --color-secondary: #e31e24;
-  --color-secondary-hover: #c2181d;
-  --color-accent: #09cdff;
 }
+
+* {
+  /* font-family: 'Lato', sans-serif; */
+    /* font-family: 'Rubik', sans-serif; */
+}
+
 
 /* ✅ Apply font globally (v4 correct way) */
 body {
-  font-family: var(--font-display);
+  /* font-family: var(--font-display); */
+  /* font-family: 'Lato', sans-serif; */
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: -0.01em;
 }
 
+
+h1,h2,h3 {
+  /* font-family: 'Lato', sans-serif; */
+    /* font-family: 'Rubik', sans-serif; */
+}
 body {
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: -0.01em;
+  /* font-family:  'Lato', 'sans-serif';
+  font-family: 'Rubik', sans-serif; */
 }
+
+
+.font-lato {
+  font-family:  'Lato', 'sans-serif';
+}
+
+.font-rubik {
+  font-family: 'Rubik', sans-serif;
+}
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
+}
+
+
+
+
 
 
 @keyframes float {
