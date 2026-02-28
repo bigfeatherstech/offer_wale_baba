@@ -1,43 +1,64 @@
-// components/USER_LOGIN_SEGMENT/Login.jsx
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { Mail, Lock, LogIn, Phone } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
+  const googleBtnRef = useRef(null); // Reference for the hidden official button
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPhoneMessage, setShowPhoneMessage] = useState(false);
 
-  // Clear any previous errors when component mounts
   useEffect(() => {
     dispatch(clearError());
   }, [dispatch]);
 
-  // ✅ Initialize Google Sign-In button
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  // ✅ LOGIC: Trigger the hidden official Google button click
+  const handleGoogleClick = () => {
+    if (googleBtnRef.current) {
+      // Find the actual <iframe> or <div> inside the hidden container and click it
+      const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
+      if (googleDiv) {
+        googleDiv.click();
+      } else {
+        // Fallback for some browser versions
+        const iframe = googleBtnRef.current.querySelector('iframe');
+        if(iframe) iframe.click();
+      }
+    }
+  };
+
   useEffect(() => {
     const initializeGoogle = () => {
       if (window.google) {
         window.google.accounts.id.initialize({
-          client_id:
-            import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
-          callback: handleGoogleResponse,
-          ux_mode: "popup",
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+          use_fedcm_for_prompt: true, // ✅ Fixes the warning you received
+          callback: async (response) => {
+            const result = await dispatch(googleLogin({ idToken: response.credential }));
+            if (googleLogin.fulfilled.match(result)) {
+              toast.success("Logged in with Google!");
+              onLoginSuccess();
+            }
+          },
         });
 
-        const btnContainer = document.getElementById("google-login-btn");
-        if (btnContainer) {
-          window.google.accounts.id.renderButton(btnContainer, {
-            theme: "filled_black",
-            size: "large",
-            width: btnContainer.offsetWidth,
-            shape: "pill",
-            text: "signin_with",
-          });
-        }
+        // ✅ IMPORTANT: Render the real button into a hidden div
+        // This forces Google to prepare a "Centered Popup" context
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+        });
       }
     };
 
@@ -45,164 +66,703 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
       const script = document.createElement("script");
       script.src = "https://accounts.google.com/gsi/client";
       script.async = true;
-      script.defer = true;
       script.onload = initializeGoogle;
       document.body.appendChild(script);
     } else {
       initializeGoogle();
     }
-  }, []);
+  }, [dispatch, onLoginSuccess]);
 
-  // ✅ Handle Google response — dispatch googleLogin thunk
-  const handleGoogleResponse = async (response) => {
-    const result = await dispatch(googleLogin({ idToken: response.credential }));
-    if (googleLogin.fulfilled.match(result)) {
-      onLoginSuccess();
-    }
-  };
-
-  // ✅ Handle email/password login — dispatch loginUser thunk
   const handleEmailLogin = async (e) => {
     e.preventDefault();
-    dispatch(clearError());
-
     const result = await dispatch(loginUser({ email, password }));
     if (loginUser.fulfilled.match(result)) {
+      toast.success("Welcome back!");
       onLoginSuccess();
     }
-  };
-
-  const handlePhoneLogin = () => {
-    setShowPhoneMessage(true);
-    setTimeout(() => setShowPhoneMessage(false), 3000);
   };
 
   return (
     <div className="w-full">
-      <h2 className="text-4xl font-black text-white mb-2 tracking-tighter">
+      {/* HIDDEN GOOGLE BUTTON CONTAINER */}
+      <div ref={googleBtnRef} style={{ display: 'none' }}></div>
+
+      <h2 className="text-4xl text-center font-black text-white mb-1 tracking-tighter">
         WELCOME <span className="text-[#f7a221]">BACK</span>
       </h2>
-      <p className="text-gray-500 text-sm mb-8">Login to access your VIP deals</p>
+      <p className="text-gray-400 text-[10px] tracking-widest mb-6 text-center uppercase">
+        Access your premium dashboard
+      </p>
 
-      {/* ✅ API Error from Redux */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+        <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-[11px] text-center font-medium animate-pulse">
           {error}
         </div>
       )}
 
-      {/* Phone Coming Soon */}
-      {showPhoneMessage && (
-        <div className="mb-4 p-3 bg-[#f7a221]/10 border border-[#f7a221]/20 rounded-xl text-[#f7a221] text-sm">
-          Phone login is coming soon! Please use email or Google.
-        </div>
-      )}
-
-      {/* Google Sign In */}
-      <div className="mb-4 overflow-hidden flex justify-center">
-        <div id="google-login-btn" className="w-full min-h-[50px]"></div>
-      </div>
-
-      {/* Phone Login Button */}
+      {/* CUSTOM UI BUTTON - Triggers the hidden real button */}
       <button
-        onClick={handlePhoneLogin}
-        className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 mb-4"
+        type="button"
+        onClick={handleGoogleClick}
+        className="w-full bg-white hover:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 mb-4 shadow-lg active:scale-95"
       >
-        <Phone size={18} />
+        <svg className="w-5 h-5" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        <span className="text-sm">Sign in with Google</span>
+      </button>
+
+      {/* REST OF YOUR UI REMAINS EXACTLY THE SAME */}
+      <button
+        onClick={() => toast.info("Phone login coming soon!")}
+        className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 mb-4 text-sm"
+      >
+        <Phone size={16} />
         Login with Phone Number
       </button>
 
       <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/10"></div>
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-4 bg-[#0d0d0d] text-gray-500">
-            OR LOGIN WITH EMAIL
-          </span>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+        <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+          <span className="px-4 bg-[#0d0d0d] text-gray-600">OR</span>
         </div>
       </div>
 
-      {/* Email Login Form */}
-      <form onSubmit={handleEmailLogin} className="space-y-4">
+      <form onSubmit={handleEmailLogin} className="space-y-3.5">
         <div className="relative">
-          <Mail
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
-            size={18}
-          />
+          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-800" size={18} />
           <input
-            type="email"
-            placeholder="Email address"
-            value={email}
+            type="email" placeholder="Email address" value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-800 focus:outline-none focus:border-[#f7a221] transition-all text-sm"
             required
           />
         </div>
 
         <div className="relative">
-          <Lock
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
-            size={18}
-          />
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-800" size={18} />
           <input
-            type="password"
-            placeholder="Password"
-            value={password}
+            type="password" placeholder="Password" value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-800 focus:outline-none focus:border-[#f7a221] transition-all text-sm"
             required
           />
         </div>
 
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onForgotPasswordClick}
-            className="text-sm text-gray-500 hover:text-[#f7a221] transition-colors"
-          >
-            Forgot Password?
-          </button>
+          <button type="button" onClick={onForgotPasswordClick} className="text-[11px] text-gray-400 hover:text-[#f7a221] uppercase font-bold tracking-tighter cursor-pointer">Forgot Password?</button>
         </div>
 
-        {/* ✅ Shows loading spinner while API call is in progress */}
         <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-60 disabled:cursor-not-allowed text-black font-black py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 text-lg tracking-tight"
+          type="submit" disabled={loading}
+          className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-50 text-black font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-md shadow-[0_10px_20px_rgba(247,162,33,0.2)] cursor-pointer"
         >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              Logging in...
-            </span>
-          ) : (
-            <>
-              <LogIn size={20} />
-              LOGIN
-            </>
-          )}
+          {loading ? "PROCESSING..." : <> LOGIN</>}
         </button>
       </form>
-
-      {/* Register Link */}
-      <div className="mt-6 text-center">
-        <span className="text-gray-500 text-sm">Don't have an account? </span>
-        <button
-          onClick={onRegisterClick}
-          className="text-[#f7a221] hover:underline text-sm font-medium"
-        >
-          Register here
-        </button>
-      </div>
     </div>
   );
 };
 
 export default Login;
+
+// WORKING BUT THE POP COME IN TOP RIGHT NOT IN THE CENTER..*****************************************
+
+// import React, { useState, useEffect } from "react";
+// import { Mail, Lock, LogIn, Phone } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+
+// const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error } = useSelector((state) => state.auth);
+
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+
+//   useEffect(() => {
+//     dispatch(clearError());
+//   }, [dispatch]);
+
+//   useEffect(() => {
+//     if (error) {
+//       toast.error(error);
+//       // We don't clear error here so the inline message can stay visible if needed
+//     }
+//   }, [error]);
+
+//   const handleGoogleClick = () => {
+//     if (window.google) {
+//       window.google.accounts.id.prompt();
+//     }
+//   };
+
+//   useEffect(() => {
+//     const initializeGoogle = () => {
+//       if (window.google) {
+//         window.google.accounts.id.initialize({
+//           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//           callback: async (response) => {
+//             const result = await dispatch(googleLogin({ idToken: response.credential }));
+//             if (googleLogin.fulfilled.match(result)) {
+//               toast.success("Logged in with Google!");
+//               onLoginSuccess();
+//             }
+//           },
+//         });
+//       }
+//     };
+
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.onload = initializeGoogle;
+//       document.body.appendChild(script);
+//     } else {
+//       initializeGoogle();
+//     }
+//   }, [dispatch, onLoginSuccess]);
+
+//   const handleEmailLogin = async (e) => {
+//     e.preventDefault();
+//     const result = await dispatch(loginUser({ email, password }));
+//     if (loginUser.fulfilled.match(result)) {
+//       toast.success("Welcome back!");
+//       onLoginSuccess();
+//     }
+//   };
+
+//   return (
+//     <div className="w-full">
+//       <h2 className="text-4xl text-center font-black text-white mb-1 tracking-tighter">
+//         WELCOME <span className="text-[#f7a221]">BACK</span>
+//       </h2>
+//       <p className="text-gray-400 text-[10px] tracking-widest mb-6 text-center uppercase">
+//         Access your premium dashboard
+//       </p>
+
+//       {/* Inline Small Error Display */}
+//       {error && (
+//         <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-[11px] text-center font-medium animate-pulse">
+//           {error}
+//         </div>
+//       )}
+
+//       {/* Real G Google Button */}
+//       <button
+//         onClick={handleGoogleClick}
+//         className="w-full bg-white hover:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 mb-4 shadow-lg"
+//       >
+//         <svg className="w-5 h-5" viewBox="0 0 48 48">
+//           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+//           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+//           <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+//           <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+//         </svg>
+//         <span className="text-sm">Sign in with Google</span>
+//       </button>
+
+//       <button
+//         onClick={() => toast.info("Phone login coming soon!")}
+//         className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 mb-4 text-sm"
+//       >
+//         <Phone size={16} />
+//         Login with Phone Number
+//       </button>
+
+//       <div className="relative my-6">
+//         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+//         <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+//           <span className="px-4 bg-[#0d0d0d] text-gray-600">OR</span>
+//         </div>
+//       </div>
+
+//       <form onSubmit={handleEmailLogin} className="space-y-3.5">
+//         <div className="relative">
+//           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//           <input
+//             type="email" placeholder="Email address" value={email}
+//             onChange={(e) => setEmail(e.target.value)}
+//             className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-700 focus:outline-none focus:border-[#f7a221] transition-all text-sm"
+//             required
+//           />
+//         </div>
+
+//         <div className="relative">
+//           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//           <input
+//             type="password" placeholder="Password" value={password}
+//             onChange={(e) => setPassword(e.target.value)}
+//             className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-700 focus:outline-none focus:border-[#f7a221] transition-all text-sm"
+//             required
+//           />
+//         </div>
+
+//         <div className="flex justify-end">
+//           <button type="button" onClick={onForgotPasswordClick} className="text-[11px] text-gray-00 hover:text-[#f7a221] uppercase font-bold tracking-tighter cursor-pointer">Forgot Password?</button>
+//         </div>
+
+//         <button
+//           type="submit" disabled={loading}
+//           className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-50 text-black font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-md shadow-[0_10px_20px_rgba(247,162,33,0.2)] cursor-pointer"
+//         >
+//           {loading ? "PROCESSING..." : <><LogIn size={20} /> LOGIN</>}
+//         </button>
+//       </form>
+//     </div>
+//   );
+// };
+
+// export default Login;
+
+
+// // components/USER_LOGIN_SEGMENT/Login.jsx
+// import React, { useState, useEffect } from "react";
+// import { Mail, Lock, LogIn, Phone } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify"; // ✅ Added Toastify import
+// import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+
+// const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error } = useSelector((state) => state.auth);
+
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [showPhoneMessage, setShowPhoneMessage] = useState(false);
+
+//   // Clear any previous errors when component mounts
+//   useEffect(() => {
+//     dispatch(clearError());
+//   }, [dispatch]);
+
+//   // ✅ Trigger Toast on Error changes
+//   useEffect(() => {
+//     if (error) {
+//       toast.error(error);
+//       dispatch(clearError());
+//     }
+//   }, [error, dispatch]);
+
+//   // ✅ Initialize Google Sign-In button
+//   useEffect(() => {
+//     const initializeGoogle = () => {
+//       if (window.google) {
+//         window.google.accounts.id.initialize({
+//           client_id:
+//             import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//           callback: handleGoogleResponse,
+//           ux_mode: "popup",
+//         });
+
+//         const btnContainer = document.getElementById("google-login-btn");
+//         if (btnContainer) {
+//           window.google.accounts.id.renderButton(btnContainer, {
+//             theme: "filled_black",
+//             size: "large",
+//             width: btnContainer.offsetWidth,
+//             shape: "pill",
+//             text: "signin_with",
+//           });
+//         }
+//       }
+//     };
+
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.defer = true;
+//       script.onload = initializeGoogle;
+//       document.body.appendChild(script);
+//     } else {
+//       initializeGoogle();
+//     }
+//   }, []);
+
+//   // ✅ Handle Google response — dispatch googleLogin thunk
+//   const handleGoogleResponse = async (response) => {
+//     const result = await dispatch(googleLogin({ idToken: response.credential }));
+//     if (googleLogin.fulfilled.match(result)) {
+//       toast.success("Logged in with Google!"); // ✅ Added Toast
+//       onLoginSuccess();
+//     }
+//   };
+
+//   // ✅ Handle email/password login — dispatch loginUser thunk
+//   const handleEmailLogin = async (e) => {
+//     e.preventDefault();
+//     dispatch(clearError());
+
+//     const result = await dispatch(loginUser({ email, password }));
+//     if (loginUser.fulfilled.match(result)) {
+//       toast.success("Welcome back!"); // ✅ Added Toast
+//       onLoginSuccess();
+//     }
+//   };
+
+//   const handlePhoneLogin = () => {
+//     // setShowPhoneMessage(true); // Logic kept but replaced by toast below
+//     toast.info("Phone login is coming soon!"); // ✅ Added Toast
+//     setTimeout(() => setShowPhoneMessage(false), 3000);
+//   };
+
+//   return (
+//     <div className="w-full">
+//       <h2 className="text-4xl text-center font-black text-white mb-2 tracking-tighter">
+//         WELCOME <span className="text-[#f7a221]">BACK</span>
+//       </h2>
+//       <p className="text-gray-500 text-sm mb-8 text-center">
+//         Login to access your VIP deals
+//       </p>
+
+//       {/* ✅ API Error from Redux — COMMENTED OUT HARDCORE UI
+//       {error && (
+//         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+//           {error}
+//         </div>
+//       )} 
+//       */}
+
+//       {/* Phone Coming Soon — COMMENTED OUT HARDCORE UI
+//       {showPhoneMessage && (
+//         <div className="mb-4 p-3 bg-[#f7a221]/10 border border-[#f7a221]/20 rounded-xl text-[#f7a221] text-sm">
+//           Phone login is coming soon! Please use email or Google.
+//         </div>
+//       )} 
+//       */}
+
+//       {/* Google Sign In */}
+//       <div className="mb-4 overflow-hidden flex justify-center">
+//         <div id="google-login-btn" className="w-full min-h-[50px]"></div>
+//       </div>
+
+//       {/* Phone Login Button */}
+//       <button
+//         onClick={handlePhoneLogin}
+//         className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 mb-4"
+//       >
+//         <Phone size={18} />
+//         Login with Phone Number
+//       </button>
+
+//       <div className="relative my-6">
+//         <div className="absolute inset-0 flex items-center">
+//           <div className="w-full border-t border-white/10"></div>
+//         </div>
+//         <div className="relative flex justify-center text-xs">
+//           <span className="px-4 bg-[#0d0d0d] text-gray-500">
+//             OR LOGIN WITH EMAIL
+//           </span>
+//         </div>
+//       </div>
+
+//       {/* Email Login Form */}
+//       <form onSubmit={handleEmailLogin} className="space-y-4">
+//         <div className="relative">
+//           <Mail
+//             className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+//             size={18}
+//           />
+//           <input
+//             type="email"
+//             placeholder="Email address"
+//             value={email}
+//             onChange={(e) => setEmail(e.target.value)}
+//             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+//             required
+//           />
+//         </div>
+
+//         <div className="relative">
+//           <Lock
+//             className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+//             size={18}
+//           />
+//           <input
+//             type="password"
+//             placeholder="Password"
+//             value={password}
+//             onChange={(e) => setPassword(e.target.value)}
+//             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+//             required
+//           />
+//         </div>
+
+//         <div className="flex justify-end">
+//           <button
+//             type="button"
+//             onClick={onForgotPasswordClick}
+//             className="text-sm text-gray-500 hover:text-[#f7a221] transition-colors"
+//           >
+//             Forgot Password?
+//           </button>
+//         </div>
+
+//         {/* ✅ Shows loading spinner while API call is in progress */}
+//         <button
+//           type="submit"
+//           disabled={loading}
+//           className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-60 disabled:cursor-not-allowed text-black font-black py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 text-lg tracking-tight"
+//         >
+//           {loading ? (
+//             <span className="flex items-center gap-2">
+//               <svg
+//                 className="animate-spin h-5 w-5"
+//                 viewBox="0 0 24 24"
+//                 fill="none"
+//               >
+//                 <circle
+//                   className="opacity-25"
+//                   cx="12"
+//                   cy="12"
+//                   r="10"
+//                   stroke="currentColor"
+//                   strokeWidth="4"
+//                 />
+//                 <path
+//                   className="opacity-75"
+//                   fill="currentColor"
+//                   d="M4 12a8 8 0 018-8v8z"
+//                 />
+//               </svg>
+//               Logging in...
+//             </span>
+//           ) : (
+//             <>
+//               <LogIn size={20} />
+//               LOGIN
+//             </>
+//           )}
+//         </button>
+//       </form>
+
+//       {/* Register Link */}
+//       <div className="mt-6 text-center">
+//         <span className="text-gray-500 text-sm">Don't have an account? </span>
+//         <button
+//           onClick={onRegisterClick}
+//           className="text-[#f7a221] hover:underline text-sm font-medium"
+//         >
+//           Register here
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Login;
+
+// // components/USER_LOGIN_SEGMENT/Login.jsx
+// import React, { useState, useEffect } from "react";
+// import { Mail, Lock, LogIn, Phone } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+
+// const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error } = useSelector((state) => state.auth);
+
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [showPhoneMessage, setShowPhoneMessage] = useState(false);
+
+//   // Clear any previous errors when component mounts
+//   useEffect(() => {
+//     dispatch(clearError());
+//   }, [dispatch]);
+
+//   // ✅ Initialize Google Sign-In button
+//   useEffect(() => {
+//     const initializeGoogle = () => {
+//       if (window.google) {
+//         window.google.accounts.id.initialize({
+//           client_id:
+//             import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//           callback: handleGoogleResponse,
+//           ux_mode: "popup",
+//         });
+
+//         const btnContainer = document.getElementById("google-login-btn");
+//         if (btnContainer) {
+//           window.google.accounts.id.renderButton(btnContainer, {
+//             theme: "filled_black",
+//             size: "large",
+//             width: btnContainer.offsetWidth,
+//             shape: "pill",
+//             text: "signin_with",
+//           });
+//         }
+//       }
+//     };
+
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.defer = true;
+//       script.onload = initializeGoogle;
+//       document.body.appendChild(script);
+//     } else {
+//       initializeGoogle();
+//     }
+//   }, []);
+
+//   // ✅ Handle Google response — dispatch googleLogin thunk
+//   const handleGoogleResponse = async (response) => {
+//     const result = await dispatch(googleLogin({ idToken: response.credential }));
+//     if (googleLogin.fulfilled.match(result)) {
+//       onLoginSuccess();
+//     }
+//   };
+
+//   // ✅ Handle email/password login — dispatch loginUser thunk
+//   const handleEmailLogin = async (e) => {
+//     e.preventDefault();
+//     dispatch(clearError());
+
+//     const result = await dispatch(loginUser({ email, password }));
+//     if (loginUser.fulfilled.match(result)) {
+//       onLoginSuccess();
+//     }
+//   };
+
+//   const handlePhoneLogin = () => {
+//     setShowPhoneMessage(true);
+//     setTimeout(() => setShowPhoneMessage(false), 3000);
+//   };
+
+//   return (
+//     <div className="w-full">
+//       <h2 className="text-4xl text-center font-black text-white mb-2 tracking-tighter">
+//         WELCOME <span className="text-[#f7a221]">BACK</span>
+//       </h2>
+//       <p className="text-gray-500 text-sm mb-8 text-center">Login to access your VIP deals</p>
+
+//       {/* ✅ API Error from Redux */}
+//       {error && (
+//         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+//           {error}
+//         </div>
+//       )}
+
+//       {/* Phone Coming Soon */}
+//       {showPhoneMessage && (
+//         <div className="mb-4 p-3 bg-[#f7a221]/10 border border-[#f7a221]/20 rounded-xl text-[#f7a221] text-sm">
+//           Phone login is coming soon! Please use email or Google.
+//         </div>
+//       )}
+
+//       {/* Google Sign In */}
+//       <div className="mb-4 overflow-hidden flex justify-center">
+//         <div id="google-login-btn" className="w-full min-h-[50px]"></div>
+//       </div>
+
+//       {/* Phone Login Button */}
+//       <button
+//         onClick={handlePhoneLogin}
+//         className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 mb-4"
+//       >
+//         <Phone size={18} />
+//         Login with Phone Number
+//       </button>
+
+//       <div className="relative my-6">
+//         <div className="absolute inset-0 flex items-center">
+//           <div className="w-full border-t border-white/10"></div>
+//         </div>
+//         <div className="relative flex justify-center text-xs">
+//           <span className="px-4 bg-[#0d0d0d] text-gray-500">
+//             OR LOGIN WITH EMAIL
+//           </span>
+//         </div>
+//       </div>
+
+//       {/* Email Login Form */}
+//       <form onSubmit={handleEmailLogin} className="space-y-4">
+//         <div className="relative">
+//           <Mail
+//             className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+//             size={18}
+//           />
+//           <input
+//             type="email"
+//             placeholder="Email address"
+//             value={email}
+//             onChange={(e) => setEmail(e.target.value)}
+//             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+//             required
+//           />
+//         </div>
+
+//         <div className="relative">
+//           <Lock
+//             className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+//             size={18}
+//           />
+//           <input
+//             type="password"
+//             placeholder="Password"
+//             value={password}
+//             onChange={(e) => setPassword(e.target.value)}
+//             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221] transition-all"
+//             required
+//           />
+//         </div>
+
+//         <div className="flex justify-end">
+//           <button
+//             type="button"
+//             onClick={onForgotPasswordClick}
+//             className="text-sm text-gray-500 hover:text-[#f7a221] transition-colors"
+//           >
+//             Forgot Password?
+//           </button>
+//         </div>
+
+//         {/* ✅ Shows loading spinner while API call is in progress */}
+//         <button
+//           type="submit"
+//           disabled={loading}
+//           className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-60 disabled:cursor-not-allowed text-black font-black py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 text-lg tracking-tight"
+//         >
+//           {loading ? (
+//             <span className="flex items-center gap-2">
+//               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+//                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+//                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+//               </svg>
+//               Logging in...
+//             </span>
+//           ) : (
+//             <>
+//               <LogIn size={20} />
+//               LOGIN
+//             </>
+//           )}
+//         </button>
+//       </form>
+
+//       {/* Register Link */}
+//       <div className="mt-6 text-center">
+//         <span className="text-gray-500 text-sm">Don't have an account? </span>
+//         <button
+//           onClick={onRegisterClick}
+//           className="text-[#f7a221] hover:underline text-sm font-medium"
+//         >
+//           Register here
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Login;
 
 
 // // components/USER_LOGIN_SEGMENT/Login.jsx

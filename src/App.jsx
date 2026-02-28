@@ -8,6 +8,9 @@ import WhatsAppFloat from "./components/WHATSAPP_FLOAT/WhatsAppFloat";
 import LogRegister from "./components/USER_LOGIN_SEGMENT/LogRegister";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import AdminDashboard from "./components/ADMIN_SEGMENT/Admin_dashboard";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -62,6 +65,21 @@ const App = () => {
 
   return (
     <Router>
+      {/* Place ToastContainer here - outside the main layout flow */}
+     <ToastContainer
+      position="top-right"
+      autoClose={3000}
+      hideProgressBar={false}
+      newestOnTop={true}
+      closeOnClick
+      pauseOnHover
+      theme="dark"
+      toastClassName={() => 
+        "relative flex p-1 min-h-10 rounded-xl justify-between overflow-hidden cursor-pointer bg-[#0d0d0d] border border-white/10 mb-2 shadow-2xl"
+      }
+      bodyClassName={() => "text-sm font-medium text-white block p-3"}
+      progressClassName="bg-[#f7a221]"
+    />
       <div className="min-h-screen">
         <Navbar
           searchQuery={searchQuery}
@@ -80,6 +98,13 @@ const App = () => {
             path="/customer-care"
             element={<CustomerCare onOpenAuth={openAuthModal} />}
           />
+
+
+
+
+          {/* ADMIN_ROUTES */}
+          <Route path="/admin" element={<AdminDashboard />} />
+           <Route path="/admindash/*" element={<AdminDashboard />} /> {/* Catch all */}
         </Routes>
 
         <Footer />

@@ -62,9 +62,9 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
         >
             {/* User Info Header */}
             <div className="bg-gradient-to-r from-[#F7A221]/10 to-transparent p-4 border-b">
-                <p className="text-xs text-gray-500 mb-1">Welcome back,</p><span className='text-lg' >🤡🤡🤡🤡</span>
+                <p className="text-xs text-gray-500 mb-1">Welcome back,</p>
                 <p className="font-black text-black text-lg truncate">
-                    {user.name || 'Guest'} </p>
+                    {user?.name || user?.email} </p>
                 <p className="text-xs text-gray-500 mt-1 truncate">{user?.email}</p>
             </div>
 
@@ -119,7 +119,7 @@ const MegaDropdown = ({ isOpen }) => {
         { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" /> },
         { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" /> },
         { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" /> },
-        { label: "Gifts", icon: <Gift size={18} className="text-blue-600" /> }
+        { label: "Gifts", icon: <Gift size={18} className="text-blue-600" /> },
     ];
 
     return (
