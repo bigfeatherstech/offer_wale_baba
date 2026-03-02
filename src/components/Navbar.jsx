@@ -1,11 +1,15 @@
-import React, { useCallback, memo, useState, useRef, useEffect } from 'react';
+import React, { useCallback, memo, useState, useRef, useEffect, useContext } from 'react';
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
     Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
     MapPin
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { WishlistContext } from '../contexts/WishlistContext';
+import { CartContext } from '../contexts/CartContext';
+import CartDrawer from './CartDrawer';
+import { NotificationContext } from '../contexts/NotificationContext';
 import logo from "../assets/logo2.png";
 import homeIcon from "../assets/home (2).png";
 import justarrivedIcon from "../assets/just-arrived (1).png";
@@ -17,7 +21,12 @@ import discountBannerIcon from "../assets/discount-voucher.png"
 // --- Sub-Components ---
 
 const ActionIcon = memo(({ item }) => (
-    <div className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]">
+    <div
+        onClick={() => {
+            if (typeof item.onClick === 'function') item.onClick();
+        }}
+        className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]"
+    >
         <div className="p-1 md:p-2 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
             {item.icon}
         </div>
@@ -110,8 +119,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
         setSearchQuery(e.target.value);
     }, [setSearchQuery]);
     
+    const navigate = useNavigate();
+    const { items: wishlistItems } = useContext(WishlistContext);
+    const { items: cartItems } = useContext(CartContext);
+    const { notify } = useContext(NotificationContext);
+
     const [isLogoHovered, setIsLogoHovered] = useState(false);
     const [burstIcons, setBurstIcons] = useState([]);
+    const [cartOpen, setCartOpen] = useState(false);
     
     useEffect(() => {
         let interval;
@@ -143,13 +158,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
         { icon: <HeadphonesIcon size={18} />, color: "text-yellow-500" }
     ];
     
+    // calculate total quantity for cart badge
+    const cartCount = cartItems.reduce((acc, i) => acc + (i.quantity || 1), 0);
+
     const actionIcons = [
-        { icon: <User size={22} />, label: "Account" },
-        { icon: <Heart size={22} />, label: "Wishlist", count: 0, badge: "bg-red-600" },
-        { icon: <ShoppingCart size={22} />, label: "Cart", count: 0, badge: "bg-black" }
+        { icon: <User size={22} />, label: "Account", onClick: () => console.log('Account clicked') },
+        { icon: <Heart size={22} />, label: "Wishlist", count: wishlistItems.length, badge: "bg-red-600", onClick: () => navigate('/wishlist') },
+        { icon: <ShoppingCart size={22} />, label: "Cart", count: cartCount, badge: "bg-black", onClick: () => setCartOpen(true) }
     ];
 
     // Updated bottomNavLinks with PNG images and individual animations
+    const handleCloseCartDrawer = () => setCartOpen(false);
     const bottomNavLinks = [
         {
             label: "Todays' Deal",
@@ -311,6 +330,12 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
                     </div>
                 </nav>
             </header>
+
+            {/* cart drawer overlay */}
+            {cartOpen && <CartDrawer isOpen={cartOpen} onClose={handleCloseCartDrawer} />}
+
+            {/* cart drawer overlay */}
+            {cartOpen && <CartDrawer isOpen={cartOpen} onClose={handleCloseCartDrawer} />}
 
             {/* Mobile Sidebar Overlay */}
             {isMenuOpen && (

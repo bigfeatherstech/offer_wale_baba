@@ -302,15 +302,23 @@
 
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Homepage from './pages/Homepage';
 import CustomerCare from './pages/CustomerCare';
+import WishlistPage from './pages/WishlistPage';
+import CartPage from './pages/CartPage';
+import CheckoutPage from './pages/CheckoutPage';
+import Products from './components/PRODUCTS/Products';
+import ProductDetail from './components/PRODUCTS/ProductDetail';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import WhatsAppFloat from './components/WHATSAPP_FLOAT/WhatsAppFloat';
 import LogRegister from './components/USER_LOGIN_SEGMENT/LogRegister';
 import GiftPopup from './components/USER_LOGIN_SEGMENT/GiftPopup';
+import { WishlistProvider } from './contexts/WishlistContext';
+import { CartProvider } from './contexts/CartContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -323,6 +331,13 @@ const App = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGiftPopupOpen, setIsGiftPopupOpen] = useState(false);
   const [hasShownGiftPopup, setHasShownGiftPopup] = useState(false);
+
+  // track if user attempted to exit (used by GiftPopup)
+  const [exitAttempt, setExitAttempt] = useState(false);
+  // track whether auth popup has been closed at least once
+  const [authPopupClosed, setAuthPopupClosed] = useState(false);
+  const exitIntentShownRef = useRef(false);
+  const timerRef = useRef(null);
 
   /* ---------------- AUTH POPUP ---------------- */
   useEffect(() => {
@@ -424,7 +439,64 @@ const App = () => {
     }
   }, []);
 
+  /* ---------------- EXIT INTENT HANDLER ---------------- */
+  useEffect(() => {
+    const handleMouseLeave = (e) => {
+      if (e.clientY <= 0 && !exitIntentShownRef.current) {
+        exitIntentShownRef.current = true;
+        setExitAttempt(true);
+        setIsGiftPopupOpen(true);
+        setTimeout(() => {
+          exitIntentShownRef.current = false;
+        }, 1000);
+      }
+    };
+
+    const handleMouseMove = (ev) => {
+      if (ev.clientY <= 6 && !exitIntentShownRef.current) {
+        exitIntentShownRef.current = true;
+        setExitAttempt(true);
+        setIsGiftPopupOpen(true);
+        setTimeout(() => {
+          exitIntentShownRef.current = false;
+        }, 1000);
+      }
+    };
+
+    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
   /* ---------------- LOGIN / LOGOUT ---------------- */
+
+  const handleAuthClose = () => {
+    setIsAuthOpen(false);
+    setAuthPopupClosed(true);
+  };
+
+  const handleGiftPopupClose = () => {
+    setIsGiftPopupOpen(false);
+    setExitAttempt(false);
+  };
+
+  const handleConfirmClose = () => {
+    setIsGiftPopupOpen(false);
+    try {
+      window.open('', '_self');
+      window.close();
+      setTimeout(() => {
+        window.location.href = 'about:blank';
+      }, 200);
+    } catch (err) {
+      window.location.href = 'about:blank';
+    }
+    setExitAttempt(false);
+  };
   const handleLogin = () => {
     sessionStorage.setItem('isUserLoggedIn', 'true');
     setIsLoggedIn(true);
@@ -437,42 +509,51 @@ const App = () => {
   };
 
   return (
-    <Router>
-      <div className="min-h-screen">
-        <Navbar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          isMenuOpen={isMenuOpen}
-          setIsMenuOpen={setIsMenuOpen}
-          isLoggedIn={isLoggedIn}
-          onLogout={handleLogout}
-        />
+    <NotificationProvider>
+      <Router>
+        <WishlistProvider>
+          <CartProvider>
+            <div className="min-h-screen">
+              <Navbar
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                isMenuOpen={isMenuOpen}
+                setIsMenuOpen={setIsMenuOpen}
+                isLoggedIn={isLoggedIn}
+                onLogout={handleLogout}
+              />
 
-        <Routes>
-          <Route path="/" element={<Homepage />} />
-          <Route path="/customer-care" element={<CustomerCare />} />
-        </Routes>
+              <Routes>
+                <Route path="/" element={<Homepage />} />
+                <Route path="/customer-care" element={<CustomerCare />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:slug" element={<ProductDetail />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout/:slug" element={<CheckoutPage />} />
+              </Routes>
 
-        <Footer />
+              <Footer />
 
-        <LogRegister
-          isOpen={isAuthOpen}
-          onClose={() => setIsAuthOpen(false)}
-          onLoginSuccess={handleLogin}
-        />
+              <LogRegister
+                isOpen={isAuthOpen}
+                onClose={() => setIsAuthOpen(false)}
+                onLoginSuccess={handleLogin}
+              />
 
-        <GiftPopup
-          isOpen={isGiftPopupOpen}
-          onClose={() => {
-            setIsGiftPopupOpen(false);
-            // Don't set hasShownGiftPopup to true so it can appear again after 30 seconds
-            // Just close it for now
-          }}
-        />
+              <GiftPopup
+                isOpen={isGiftPopupOpen}
+                onClose={handleGiftPopupClose}
+                exitAttempt={exitAttempt}
+                onConfirmClose={handleConfirmClose}
+              />
 
-        <WhatsAppFloat />
-      </div>
-    </Router>
+              <WhatsAppFloat />
+            </div>
+          </CartProvider>
+        </WishlistProvider>
+      </Router>
+    </NotificationProvider>
   );
 };
 
