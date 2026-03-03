@@ -18,6 +18,8 @@ import saleIcon from "../assets/sale.png";
 import coupanIcon from "../assets/coupon.png";
 import customercareIcon from "../assets/service.png";
 import discountBannerIcon from "../assets/discount-voucher.png"
+
+import ProfilePage from '../pages/Profile';
 // --- Sub-Components ---
 
 const ActionIcon = memo(({ item }) => (
@@ -115,11 +117,14 @@ const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft"
 
 const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
 
+    
+
     const handleSearchChange = useCallback((e) => {
         setSearchQuery(e.target.value);
     }, [setSearchQuery]);
     
     const navigate = useNavigate();
+
     const { items: wishlistItems } = useContext(WishlistContext);
     const { items: cartItems } = useContext(CartContext);
     const { notify } = useContext(NotificationContext);
@@ -128,6 +133,12 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
     const [burstIcons, setBurstIcons] = useState([]);
     const [cartOpen, setCartOpen] = useState(false);
     
+
+const handleAccountClick = () => {
+  navigate("/profile");
+};
+
+
     useEffect(() => {
         let interval;
         if (isLogoHovered) {
@@ -162,7 +173,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
     const cartCount = cartItems.reduce((acc, i) => acc + (i.quantity || 1), 0);
 
     const actionIcons = [
-        { icon: <User size={22} />, label: "Account", onClick: () => console.log('Account clicked') },
+        // { icon: <User size={22} />, label: "Account", onClick: () => console.log('Account clicked') },
+         { icon: <User size={22} />, label: "Account", onClick: handleAccountClick },
         { icon: <Heart size={22} />, label: "Wishlist", count: wishlistItems.length, badge: "bg-red-600", onClick: () => navigate('/wishlist') },
         { icon: <ShoppingCart size={22} />, label: "Cart", count: cartCount, badge: "bg-black", onClick: () => setCartOpen(true) }
     ];

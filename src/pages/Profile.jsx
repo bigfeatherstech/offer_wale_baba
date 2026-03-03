@@ -30,6 +30,26 @@ const ProfilePage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+
+// function handleLogout(){
+//     localStorage.removeItem('token');
+//     window.location.href = '/login';
+//     Navigate('/login');
+
+// }
+// function handleProfile(){
+//     localStorage.setItem('token', 'your-token-here');
+//     window.location.href ="/profile";
+//     Navigate('/profilePage')
+// }
+
+
+function handleChange(){
+    alert('Change password functionality coming soon!');
+    
+}
+
+
   // Sample user data
   const userData = {
     name: 'Krishna Chabhai Haru',
@@ -153,6 +173,7 @@ const ProfilePage = () => {
               <div>
                 <p className="text-sm text-gray-500">Email</p>
                 <p className="font-medium">{userData.email}</p>
+              
               </div>
             </div>
             <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Edit</button>
@@ -166,7 +187,7 @@ const ProfilePage = () => {
                 <p className="font-medium">••••••••••••</p>
               </div>
             </div>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Change</button>
+            <button onClick={handleChange} className="text-blue-600 hover:text-blue-700 text-sm font-medium">Change</button>
           </div>
         </div>
       </div>
@@ -183,12 +204,17 @@ const ProfilePage = () => {
               This will log you out from all web browsers you have used to access the website. 
               To log in again, you'll have to enter your credentials.
             </p>
+              
             <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium">
               Log me out
             </button>
           </div>
         </div>
       </div>
+
+
+
+
 
       {/* Delete Account */}
       <div className="bg-red-50 rounded-xl p-6 border border-red-200">
