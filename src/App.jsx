@@ -384,36 +384,36 @@ const App = () => {
   };
 
   /* ---------------- 1️⃣ AFTER 20 SECONDS ---------------- */
-  useEffect(() => {
-    if (hasShownGiftPopup || isAuthOpen) return;
+  // useEffect(() => {
+  //   if (hasShownGiftPopup || isAuthOpen) return;
 
-    const timer = setTimeout(() => {
-      triggerGiftPopup();
-    }, 20000);
+  //   const timer = setTimeout(() => {
+  //     triggerGiftPopup();
+  //   }, 20000);
 
-    return () => clearTimeout(timer);
-  }, [hasShownGiftPopup, isAuthOpen]);
+  //   return () => clearTimeout(timer);
+  // }, [hasShownGiftPopup, isAuthOpen]);
 
   /* ---------------- 2️⃣ SCROLL 60% ---------------- */
-  useEffect(() => {
-    const handleScroll = () => {
-      if (hasShownGiftPopup || isAuthOpen) return;
+  // useEffect(() => {
+  //   const handleScroll = () => {
+  //     if (hasShownGiftPopup || isAuthOpen) return;
 
-      const scrollTop = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const fullHeight = document.documentElement.scrollHeight;
+  //     const scrollTop = window.scrollY;
+  //     const windowHeight = window.innerHeight;
+  //     const fullHeight = document.documentElement.scrollHeight;
 
-      const scrollPercent = (scrollTop + windowHeight) / fullHeight;
+  //     const scrollPercent = (scrollTop + windowHeight) / fullHeight;
 
-      if (scrollPercent >= 0.6) {
-        triggerGiftPopup();
-        window.removeEventListener('scroll', handleScroll);
-      }
-    };
+  //     if (scrollPercent >= 0.6) {
+  //       triggerGiftPopup();
+  //       window.removeEventListener('scroll', handleScroll);
+  //     }
+  //   };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasShownGiftPopup, isAuthOpen]);
+  //   window.addEventListener('scroll', handleScroll);
+  //   return () => window.removeEventListener('scroll', handleScroll);
+  // }, [hasShownGiftPopup, isAuthOpen]);
 
   /* ---------------- 3️⃣ EXIT INTENT (MOUSE TOP) ---------------- */
   useEffect(() => {
