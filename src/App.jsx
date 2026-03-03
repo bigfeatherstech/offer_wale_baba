@@ -319,6 +319,7 @@ import GiftPopup from './components/USER_LOGIN_SEGMENT/GiftPopup';
 import { WishlistProvider } from './contexts/WishlistContext';
 import { CartProvider } from './contexts/CartContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import ProfilePage from './pages/Profile';
 
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -548,6 +549,8 @@ const App = () => {
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/checkout/:slug" element={<CheckoutPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+
               </Routes>
 
               <Footer />
