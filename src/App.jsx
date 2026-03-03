@@ -353,67 +353,83 @@ const App = () => {
     }
   }, [isLoggedIn]);
 
-  /* ---------------- GIFT POPUP EVERY 30 SECONDS ---------------- */
   useEffect(() => {
-    // Don't show if auth popup is open
-    if (isAuthOpen) return;
+  if (isAuthOpen) return;
 
-    // Show gift popup every 30 seconds
-    const interval = setInterval(() => {
-      setIsGiftPopupOpen(true);
-    }, 50000); // 50 seconds
+  const alreadyShown = sessionStorage.getItem("giftPopupShown");
+  if (alreadyShown === "true") return;
 
-    return () => clearInterval(interval);
-  }, [isAuthOpen]);
+  const timer = setTimeout(() => {
+    setIsGiftPopupOpen(true);
+    setHasShownGiftPopup(true);
+    sessionStorage.setItem("giftPopupShown", "true");
+    sessionStorage.setItem("giftPopupLastShown", Date.now().toString());
+  }, 30000); // 30 seconds
+
+  return () => clearTimeout(timer);
+}, [isAuthOpen]);
+
+  /* ---------------- GIFT POPUP EVERY 30 SECONDS ---------------- */
+  // useEffect(() => {
+  //   // Don't show if auth popup is open
+  //   if (isAuthOpen) return;
+
+  //   // Show gift popup every 30 seconds
+  //   const interval = setInterval(() => {
+  //     setIsGiftPopupOpen(true);
+  //   }, 50000); // 50 seconds
+
+  //   return () => clearInterval(interval);
+  // }, [isAuthOpen]);
 
   /* ---------------- CHECK IF ALREADY SHOWN ---------------- */
-  useEffect(() => {
-    const shown = sessionStorage.getItem('giftPopupShown');
-    if (shown === 'true') {
-      setHasShownGiftPopup(true);
-    }
-  }, []);
+  // useEffect(() => {
+  //   const shown = sessionStorage.getItem('giftPopupShown');
+  //   if (shown === 'true') {
+  //     setHasShownGiftPopup(true);
+  //   }
+  // }, []);
 
-  const triggerGiftPopup = () => {
-    if (!hasShownGiftPopup && !isAuthOpen) {
-      setIsGiftPopupOpen(true);
-      setHasShownGiftPopup(true);
-      sessionStorage.setItem('giftPopupShown', 'true');
-      sessionStorage.setItem('giftPopupLastShown', Date.now().toString());
-    }
-  };
+  // const triggerGiftPopup = () => {
+  //   if (!hasShownGiftPopup && !isAuthOpen) {
+  //     setIsGiftPopupOpen(true);
+  //     setHasShownGiftPopup(true);
+  //     sessionStorage.setItem('giftPopupShown', 'true');
+  //     sessionStorage.setItem('giftPopupLastShown', Date.now().toString());
+  //   }
+  // };
 
   /* ---------------- 1️⃣ AFTER 20 SECONDS ---------------- */
-  useEffect(() => {
-    if (hasShownGiftPopup || isAuthOpen) return;
+  // useEffect(() => {
+  //   if (hasShownGiftPopup || isAuthOpen) return;
 
-    const timer = setTimeout(() => {
-      triggerGiftPopup();
-    }, 20000);
+  //   const timer = setTimeout(() => {
+  //     triggerGiftPopup();
+  //   }, 20000);
 
-    return () => clearTimeout(timer);
-  }, [hasShownGiftPopup, isAuthOpen]);
+  //   return () => clearTimeout(timer);
+  // }, [hasShownGiftPopup, isAuthOpen]);
 
   /* ---------------- 2️⃣ SCROLL 60% ---------------- */
-  useEffect(() => {
-    const handleScroll = () => {
-      if (hasShownGiftPopup || isAuthOpen) return;
+  // useEffect(() => {
+  //   const handleScroll = () => {
+  //     if (hasShownGiftPopup || isAuthOpen) return;
 
-      const scrollTop = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const fullHeight = document.documentElement.scrollHeight;
+  //     const scrollTop = window.scrollY;
+  //     const windowHeight = window.innerHeight;
+  //     const fullHeight = document.documentElement.scrollHeight;
 
-      const scrollPercent = (scrollTop + windowHeight) / fullHeight;
+  //     const scrollPercent = (scrollTop + windowHeight) / fullHeight;
 
-      if (scrollPercent >= 0.6) {
-        triggerGiftPopup();
-        window.removeEventListener('scroll', handleScroll);
-      }
-    };
+  //     if (scrollPercent >= 0.6) {
+  //       triggerGiftPopup();
+  //       window.removeEventListener('scroll', handleScroll);
+  //     }
+  //   };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasShownGiftPopup, isAuthOpen]);
+  //   window.addEventListener('scroll', handleScroll);
+  //   return () => window.removeEventListener('scroll', handleScroll);
+  // }, [hasShownGiftPopup, isAuthOpen]);
 
   /* ---------------- 3️⃣ EXIT INTENT (MOUSE TOP) ---------------- */
   useEffect(() => {
