@@ -1,32 +1,29 @@
-// PRODUCT_MODAL_SEGMENT/BulkUploadModal.jsx
-//
-// FEATURES:
-//  • Drag & drop or click-to-browse CSV upload
-//  • Browser-side CSV preview table (parsed before upload)
-//  • Column validation badges — shows which required/optional cols detected
-//  • Download sample CSV template button
-//  • Upload progress bar (0→100% file transfer)
-//  • "Processing on server…" spinner after upload hits 100%
-//  • Results panel: inserted count, failed count, failed rows table
-//  • On success → calls onSuccess() so parent re-fetches products
+// ============================================================
+// BulkUploadModal.jsx
+// TWO-STEP BULK UPLOAD MODAL
+// Step 1 — Upload CSV/Excel → preview products
+// Step 2 — Upload ZIP (optional) → confirm → save to DB
+// ============================================================
 
 import React, { useState, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  importProductsCSV,
+  previewCSV,
+  importZip,
   resetBulkUpload,
-  setUploadPct,
+  setCsvPct,
+  setZipPct,
 } from "../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sample CSV template
-// ─────────────────────────────────────────────────────────────────────────────
-const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,images,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
-Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567890,29999,24999,50,Color:Black|Size:One Size,Wireless:Yes|Driver:40mm,,false,0,false,viewing_now,0,0,,0.25,20,18,8
-Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567891,29999,24999,30,Color:Silver|Size:One Size,,,false,0,false,viewing_now,0,0,,0.25,20,18,8
-Nike Air Max 270,Nike Air Max 270 Running Shoes,Lightweight running shoes,Footwear,Nike,active,true,9876543210,8999,7499,100,Size:8|Color:White,Material:Mesh|Sole:Rubber,,true,245,true,product_left,0,15,,0.8,32,22,14`;
+// ─────────────────────────────────────────────────────────────
+// SAMPLE TEMPLATE (images column blank — ZIP handles images)
+// ─────────────────────────────────────────────────────────────
+const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
+iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665563,80000,76000,45,Color:Black|Storage:128GB,Material:Aluminium|Warranty:1 Year,true,150,true,viewing_now,67,0,,0.5,15,7,1
+iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665564,80000,76000,30,Color:White|Storage:128GB,,true,150,true,viewing_now,67,0,,0.5,15,7,1
+Nike Shoes,Nike Running Shoes,Comfortable running shoes,Shoes,Nike,draft,false,45225,4000,,180,Color:Red|Size:9,Material:Mesh,true,78,false,viewing_now,0,0,,0.8,30,10,12`;
 
-const downloadSampleCSV = () => {
+const downloadTemplate = () => {
   const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -36,140 +33,343 @@ const downloadSampleCSV = () => {
   URL.revokeObjectURL(url);
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Parse CSV text → array of row objects
-// ─────────────────────────────────────────────────────────────────────────────
-const parseCSV = (text) => {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim());
-  return lines.slice(1).map((line) => {
-    const values = [];
-    let cur = "", inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === "," && !inQ) { values.push(cur.trim()); cur = ""; }
-      else { cur += ch; }
-    }
-    values.push(cur.trim());
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
-    return obj;
-  });
+// ─────────────────────────────────────────────────────────────
+// STATUS BADGE
+// ─────────────────────────────────────────────────────────────
+const StatusBadge = ({ status }) => {
+  const map = {
+    success             : "bg-green-100 text-green-700 border-green-200",
+    saved_with_warnings : "bg-yellow-100 text-yellow-700 border-yellow-200",
+    failed              : "bg-red-100 text-red-700 border-red-200",
+    pending             : "bg-gray-100 text-gray-500 border-gray-200",
+  };
+  const label = {
+    success             : "✓ Saved",
+    saved_with_warnings : "⚠ Saved with warnings",
+    failed              : "✗ Failed",
+    pending             : "Pending",
+  };
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${map[status] || map.pending}`}>
+      {label[status] || status}
+    </span>
+  );
 };
 
-const REQUIRED_COLS  = ["name", "category", "basePrice"];
-const IMPORTANT_COLS = ["title", "brand", "status", "barcode", "salePrice", "quantity", "variantAttributes", "images"];
+// ─────────────────────────────────────────────────────────────
+// PROGRESS BAR
+// ─────────────────────────────────────────────────────────────
+const ProgressBar = ({ pct, label, processing }) => (
+  <div className="space-y-2">
+    <div className="flex justify-between text-sm font-medium text-gray-600">
+      <span>{processing ? "Server processing…" : label}</span>
+      <span className="text-indigo-600">{processing ? "100% ✓" : `${pct}%`}</span>
+    </div>
+    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+      <div
+        className="h-3 rounded-full transition-all duration-300"
+        style={{
+          width     : `${processing ? 100 : pct}%`,
+          background: "linear-gradient(90deg,#6366f1,#a855f7)",
+        }}
+      />
+    </div>
+  </div>
+);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// DROP ZONE
+// ─────────────────────────────────────────────────────────────
+const DropZone = ({ accept, label, sublabel, hint, file, onFile, onClear, disabled }) => {
+  const inputRef = useRef(null);
+  const [drag, setDrag] = useState(false);
+
+  const handle = (f) => { if (f && !disabled) onFile(f); };
+
+  return (
+    <div
+      onClick={() => !disabled && inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); if (!disabled) setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={(e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }}
+      className={`relative border-2 border-dashed rounded-2xl p-8 text-center select-none transition-all duration-200
+        ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+        ${drag    ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
+          : file  ? "border-green-400 bg-green-50"
+                  : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"}`}
+    >
+      <input ref={inputRef} type="file" accept={accept} className="hidden"
+        onChange={(e) => handle(e.target.files[0])} disabled={disabled} />
+
+      {file ? (
+        <div className="flex items-center justify-center gap-4">
+          <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div className="text-left flex-1">
+            <p className="font-semibold text-gray-900 text-sm">{file.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+          </div>
+          <button type="button"
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+          </div>
+          <p className="font-semibold text-gray-800 text-sm">{label}</p>
+          <p className="text-xs text-gray-500 mt-1">{sublabel}</p>
+          {hint && <p className="text-xs text-gray-400 mt-2 font-mono">{hint}</p>}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// MAIN MODAL
+// ─────────────────────────────────────────────────────────────
 const BulkUploadModal = ({ onClose, onSuccess }) => {
   const dispatch = useDispatch();
-  const { uploading, uploadPct, processing, result, error } =
-    useSelector((s) => s.adminBulkUpload);
+  const {
+    csvUploading, csvUploadPct, preview, csvError,
+    zipUploading, zipUploadPct, processing, result, zipError,
+  } = useSelector((s) => s.adminBulkUpload);
 
-  const fileInputRef             = useRef(null);
-  const [file,       setFile]       = useState(null);
-  const [preview,    setPreview]    = useState([]);
-  const [headers,    setHeaders]    = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [parseError, setParseError] = useState(null);
-  const [localPct,   setLocalPct]   = useState(0);
-  const [resultTab,  setResultTab]  = useState("success");
+  const [csvFile,    setCsvFile]    = useState(null);
+  const [zipFile,    setZipFile]    = useState(null);
+  const [localCsvPct, setLocalCsvPct] = useState(0);
+  const [localZipPct, setLocalZipPct] = useState(0);
+  const [resultTab,  setResultTab]  = useState("all");
+  const [expandedRow, setExpandedRow] = useState(null);
+
+  const isActive = csvUploading || zipUploading || processing;
 
   const reset = () => {
     dispatch(resetBulkUpload());
-    setFile(null);
-    setPreview([]);
-    setHeaders([]);
-    setParseError(null);
-    setLocalPct(0);
-    setResultTab("success");
+    setCsvFile(null);
+    setZipFile(null);
+    setLocalCsvPct(0);
+    setLocalZipPct(0);
+    setResultTab("all");
+    setExpandedRow(null);
   };
 
-  const handleFile = useCallback((f) => {
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".csv")) {
-      setParseError("Only .csv files are supported.");
-      return;
-    }
-    dispatch(resetBulkUpload());
-    setParseError(null);
-    setLocalPct(0);
-    setFile(f);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const rows = parseCSV(e.target.result);
-        if (!rows.length) { setParseError("CSV appears to be empty."); return; }
-        setHeaders(Object.keys(rows[0]));
-        setPreview(rows);
-      } catch (err) {
-        setParseError("Could not parse CSV: " + err.message);
-      }
+  // ── STEP 1: Upload CSV ──
+  const handlePreview = async () => {
+    if (!csvFile) return;
+    setLocalCsvPct(0);
+    await dispatch(previewCSV({
+      file: csvFile,
+      onProgress: (pct) => { setLocalCsvPct(pct); dispatch(setCsvPct(pct)); },
+    }));
+  };
+
+  // ── STEP 2: Import ZIP + confirm ──
+  const handleImport = async () => {
+    if (!preview?._parsedData) return;
+    setLocalZipPct(0);
+    const res = await dispatch(importZip({
+      zipFile,
+      parsedProducts: preview._parsedData,
+      onProgress: (pct) => { setLocalZipPct(pct); dispatch(setZipPct(pct)); },
+    }));
+    if (importZip.fulfilled.match(res)) onSuccess?.();
+  };
+
+  // ─────────────────────────────────────────────────────────
+  // RESULT PANEL
+  // ─────────────────────────────────────────────────────────
+  if (result) {
+    const all      = result.products || [];
+    const success  = all.filter(p => p.status === "success");
+    const warned   = all.filter(p => p.status === "saved_with_warnings");
+    const failed   = all.filter(p => p.status === "failed");
+
+    const tabData = {
+      all     : all,
+      success : success,
+      warnings: warned,
+      failed  : failed,
     };
-    reader.readAsText(f);
-  }, [dispatch]);
+    const shown = tabData[resultTab] || all;
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFile(e.dataTransfer.files[0]);
-  };
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[10%]">
+        <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl">
 
-  const handleUpload = async () => {
-    if (!file) return;
-    const res = await dispatch(
-      importProductsCSV({
-        file,
-        onProgress: (pct) => {
-          setLocalPct(pct);
-          dispatch(setUploadPct(pct));
-        },
-      })
+          {/* Header */}
+          <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between mt-%]">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Import Complete</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Here's what happened with your products</p>
+            </div>
+            <button onClick={() => { reset(); onClose(); }}
+              className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5">
+
+            {/* ZIP global error */}
+            {result.zipError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                ⚠ {result.zipError}
+              </div>
+            )}
+
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: "Total",    value: result.totalProducts,  color: "blue"  },
+                { label: "Saved",    value: result.savedProducts,   color: "green" },
+                { label: "Warnings", value: warned.length,          color: "yellow"},
+                { label: "Failed",   value: result.failedProducts,  color: "red"   },
+              ].map(({ label, value, color }) => (
+                <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3 text-center`}>
+                  <p className={`text-2xl font-bold text-${color}-700`}>{value}</p>
+                  <p className={`text-xs text-${color}-600 mt-0.5`}>{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { key: "all",      label: `All (${all.length})`         },
+                { key: "success",  label: `✓ Saved (${success.length})` },
+                { key: "warnings", label: `⚠ Warnings (${warned.length})`},
+                { key: "failed",   label: `✗ Failed (${failed.length})`  },
+              ].map(({ key, label }) => (
+                <button key={key} onClick={() => setResultTab(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+                    ${resultTab === key
+                      ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Product result table */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-y-auto max-h-80">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Product</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Images</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {shown.map((p, i) => (
+                      <React.Fragment key={i}>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                          <td className="px-4 py-2.5 font-medium text-gray-900 text-xs">{p.name}</td>
+                          <td className="px-4 py-2.5"><StatusBadge status={p.status}/></td>
+                          <td className="px-4 py-2.5 text-xs text-gray-600">
+                            {p.imageCount > 0
+                              ? <span className="text-green-600 font-medium">{p.imageCount} uploaded</span>
+                              : <span className="text-gray-400">none</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            {(p.warnings?.length > 0 || p.errors?.length > 0) && (
+                              <button
+                                onClick={() => setExpandedRow(expandedRow === i ? null : i)}
+                                className="text-xs text-indigo-600 hover:underline">
+                                {expandedRow === i ? "hide" : `show ${(p.warnings?.length || 0) + (p.errors?.length || 0)} issue(s)`}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {expandedRow === i && (p.warnings?.length > 0 || p.errors?.length > 0) && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-3 bg-gray-50">
+                              {p.errors?.map((e, j) => (
+                                <p key={j} className="text-xs text-red-600 mb-1">✗ {e}</p>
+                              ))}
+                              {p.warnings?.map((w, j) => (
+                                <p key={j} className="text-xs text-yellow-700 mb-1">⚠ {w}</p>
+                              ))}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button onClick={reset}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                Upload Another Batch
+              </button>
+              <button onClick={() => { reset(); onClose(); }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow text-sm">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
-    if (importProductsCSV.fulfilled.match(res)) {
-      onSuccess?.();
-    }
-  };
+  }
 
-  const missingCols = REQUIRED_COLS.filter((c) => !headers.includes(c));
-  const canUpload   = file && !parseError && missingCols.length === 0 && !uploading && !result;
-  const isActive    = uploading || processing;
-
+  // ─────────────────────────────────────────────────────────
+  // MAIN MODAL BODY
+  // ─────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[13%]">
       <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl flex flex-col">
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* Header */}
         <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Bulk Upload Products</h2>
-              <p className="text-sm text-gray-500">Import multiple products at once via CSV file</p>
+              <p className="text-sm text-gray-500">Two-step import — CSV data first, images ZIP second</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={downloadSampleCSV}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+            <button onClick={downloadTemplate}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              Download Template
+              Template
             </button>
             <button onClick={() => { reset(); onClose(); }} disabled={isActive}
               className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-40 transition-colors">
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
@@ -177,341 +377,226 @@ const BulkUploadModal = ({ onClose, onSuccess }) => {
 
         <div className="p-6 space-y-6">
 
-          {/* ── RESULT PANEL ──────────────────────────────────────────────── */}
-          {result && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-                  <p className="text-3xl font-bold text-blue-700">{result.totalRows}</p>
-                  <p className="text-sm text-blue-600 mt-1">Total Rows</p>
+          {/* ── STEP INDICATORS ── */}
+          <div className="flex items-center gap-0">
+            {[
+              { n: 1, label: "Upload CSV",    done: !!preview },
+              { n: 2, label: "Upload Images", done: !!result  },
+              { n: 3, label: "Done",          done: false      },
+            ].map(({ n, label, done }, idx) => (
+              <React.Fragment key={n}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2
+                    ${done
+                      ? "bg-green-500 border-green-500 text-white"
+                      : preview && n === 2
+                      ? "bg-indigo-600 border-indigo-600 text-white"
+                      : "bg-white border-gray-300 text-gray-400"}`}>
+                    {done ? "✓" : n}
+                  </div>
+                  <span className={`text-xs font-medium ${done || (preview && n === 2) ? "text-gray-800" : "text-gray-400"}`}>
+                    {label}
+                  </span>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                  <p className="text-3xl font-bold text-green-700">{result.insertedProducts}</p>
-                  <p className="text-sm text-green-600 mt-1">Products Created</p>
+                {idx < 2 && <div className="flex-1 h-px bg-gray-200 mx-2"/>}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* ── STEP 1: CSV UPLOAD ── */}
+          <div className={`space-y-4 ${preview ? "opacity-60 pointer-events-none" : ""}`}>
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+              <h3 className="font-semibold text-gray-800 text-sm">Upload product data (CSV or Excel)</h3>
+            </div>
+
+            {csvError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p className="text-sm text-red-700">{csvError}</p>
+              </div>
+            )}
+
+            <DropZone
+              accept=".csv,.xls,.xlsx"
+              label="Drop your CSV or Excel file here"
+              sublabel="or click to browse · .csv .xls .xlsx"
+              hint="Required columns: name, category, basePrice, barcode"
+              file={csvFile}
+              onFile={setCsvFile}
+              onClear={() => setCsvFile(null)}
+              disabled={csvUploading}
+            />
+
+            {csvUploading && (
+              <ProgressBar pct={localCsvPct} label="Uploading CSV…" processing={false}/>
+            )}
+
+            {!preview && (
+              <button
+                onClick={handlePreview}
+                disabled={!csvFile || csvUploading}
+                className="w-full px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700
+                  disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm flex items-center justify-center gap-2">
+                {csvUploading
+                  ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Parsing…</>
+                  : "Parse & Preview →"}
+              </button>
+            )}
+          </div>
+
+          {/* ── PREVIEW TABLE (after step 1) ── */}
+          {preview && !result && (
+            <div className="space-y-3">
+              {/* Summary */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                  <span className="text-sm font-semibold text-gray-800">
+                    {preview.totalProducts} products detected
+                    <span className="text-gray-400 font-normal ml-1">({preview.totalRows} rows)</span>
+                  </span>
                 </div>
-                <div className={`rounded-xl p-4 text-center border ${result.failedCount > 0 ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
-                  <p className={`text-3xl font-bold ${result.failedCount > 0 ? "text-red-700" : "text-gray-400"}`}>{result.failedCount}</p>
-                  <p className={`text-sm mt-1 ${result.failedCount > 0 ? "text-red-600" : "text-gray-400"}`}>Failed Rows</p>
+                <div className="flex gap-2 text-xs">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+                    ✓ {preview.validCount} valid
+                  </span>
+                  {preview.invalidCount > 0 && (
+                    <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
+                      ✗ {preview.invalidCount} errors
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {result.failedCount > 0 ? (
-                <div>
-                  <div className="flex gap-2 mb-3">
-                    <button onClick={() => setResultTab("success")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "success" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                      ✅ Succeeded ({result.insertedProducts})
-                    </button>
-                    <button onClick={() => setResultTab("failed")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "failed" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                      ❌ Failed ({result.failedCount})
-                    </button>
-                  </div>
-
-                  {resultTab === "failed" && (
-                    <div className="border border-red-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-red-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left font-medium text-red-700 w-10">#</th>
-                            <th className="px-4 py-3 text-left font-medium text-red-700">Product</th>
-                            <th className="px-4 py-3 text-left font-medium text-red-700">Error</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-red-100">
-                          {result.failed.map((f, i) => (
-                            <tr key={i} className="hover:bg-red-50">
-                              <td className="px-4 py-2.5 text-gray-400">{i + 1}</td>
-                              <td className="px-4 py-2.5 font-medium text-gray-800">{f.product}</td>
-                              <td className="px-4 py-2.5 text-red-600">{f.error}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {resultTab === "success" && (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                      <p className="text-green-700 text-sm font-medium">
-                        🎉 {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} successfully imported and are now visible in your product list.
-                      </p>
-                    </div>
-                  )}
+              {/* Preview table */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="overflow-y-auto max-h-52">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        {["#","Product","Category","Variants","Barcodes","Price Range","Qty","Status"].map(h => (
+                          <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {preview.preview.map((p, i) => (
+                        <tr key={i} className={`hover:bg-gray-50 ${p.hasErrors ? "bg-red-50" : ""}`}>
+                          <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                          <td className="px-3 py-2 font-medium text-gray-900 max-w-[140px] truncate" title={p.name}>{p.name}</td>
+                          <td className="px-3 py-2 text-gray-600">{p.category || <span className="text-red-400">missing!</span>}</td>
+                          <td className="px-3 py-2 text-gray-600 text-center">{p.variantCount}</td>
+                          <td className="px-3 py-2 text-gray-500 max-w-[120px] truncate" title={p.barcodes.join(", ")}>
+                            {p.barcodes.length ? p.barcodes.join(", ") : <span className="text-gray-300 italic">none</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">
+                            {p.priceRange.min === p.priceRange.max
+                              ? `₹${p.priceRange.min}`
+                              : `₹${p.priceRange.min}–${p.priceRange.max}`}
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">{p.totalQuantity}</td>
+                          <td className="px-3 py-2">
+                            {p.hasErrors
+                              ? <span className="text-red-600 font-medium" title={p.errors.join("; ")}>✗ {p.errors[0]}</span>
+                              : <span className="text-green-600 font-medium">✓ Ready</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-green-700 text-sm font-medium">
-                    🎉 All {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} imported successfully! Head back to your product list to see them.
+              </div>
+
+              {preview.invalidCount > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-xs text-red-700 font-medium">
+                    ⚠ {preview.invalidCount} product(s) have errors and will be skipped.
+                    Fix the CSV and re-upload to include them.
                   </p>
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <button onClick={reset}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">
-                  Upload Another File
-                </button>
-                <button onClick={() => { reset(); onClose(); }}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow">
-                  Done
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── PROGRESS ──────────────────────────────────────────────────── */}
-          {(uploading || processing) && !result && (
-            <div className="space-y-5">
-              <div className="p-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl text-center">
-                <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-5" />
-                <p className="font-bold text-indigo-800 text-xl">
-                  {processing ? "Processing on server…" : `Uploading file — ${localPct}%`}
-                </p>
-                <p className="text-indigo-600 text-sm mt-2 max-w-sm mx-auto">
-                  {processing
-                    ? "Server is creating products, uploading images from URLs and saving everything to the database. This may take a minute for large files."
-                    : "Sending your CSV to the server…"}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium text-gray-600">
-                  <span>{processing ? "Server processing…" : "Uploading…"}</span>
-                  <span className="text-indigo-600">{processing ? "100% ✓" : `${localPct}%`}</span>
+              {/* ── STEP 2: ZIP UPLOAD ── */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                  <h3 className="font-semibold text-gray-800 text-sm">Upload images ZIP (optional)</h3>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                  <div
-                    className="h-4 rounded-full transition-all duration-500"
-                    style={{
-                      width:      `${processing ? 100 : localPct}%`,
-                      background: "linear-gradient(90deg, #6366f1, #a855f7)",
-                    }}
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                  <p className="font-semibold">📁 How to structure your ZIP:</p>
+                  <p>Create one folder per variant named exactly after its barcode number.</p>
+                  <p>Example: <span className="font-mono bg-amber-100 px-1 rounded">665563/</span> folder → drop any images inside → zip it.</p>
+                  <p>Multiple variants of same product = multiple barcode folders. No image renaming needed.</p>
+                  <p className="text-amber-600">Skip this step to save products as drafts without images.</p>
+                </div>
+
+                {zipError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                    ✗ {zipError}
+                  </div>
+                )}
+
+                <DropZone
+                  accept=".zip"
+                  label="Drop your images ZIP here"
+                  sublabel="or click to browse · .zip only · max 500MB"
+                  hint="Folder name = barcode number. Any image name works."
+                  file={zipFile}
+                  onFile={setZipFile}
+                  onClear={() => setZipFile(null)}
+                  disabled={zipUploading || processing}
+                />
+
+                {(zipUploading || processing) && (
+                  <ProgressBar
+                    pct={localZipPct}
+                    label="Uploading ZIP…"
+                    processing={processing}
                   />
-                </div>
+                )}
                 {processing && (
-                  <div className="flex items-center justify-center gap-1.5 mt-3">
+                  <div className="flex items-center justify-center gap-1.5 py-2">
                     {[0, 0.15, 0.30].map((delay, i) => (
                       <span key={i}
-                        className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-bounce"
-                        style={{ animationDelay: `${delay}s` }} />
+                        className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"
+                        style={{ animationDelay: `${delay}s` }}/>
                     ))}
-                    <span className="ml-2 text-sm text-indigo-600">Creating products…</span>
+                    <span className="ml-2 text-xs text-indigo-600">
+                      Uploading images to Cloudinary & saving products…
+                    </span>
                   </div>
                 )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => { dispatch(resetBulkUpload()); setCsvFile(null); setZipFile(null); }}
+                    disabled={isActive}
+                    className="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50
+                      disabled:opacity-40 transition-colors text-sm">
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={isActive || !preview?._parsedData?.length}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold
+                      rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed
+                      flex items-center justify-center gap-2 transition-all shadow-lg text-sm">
+                    {isActive
+                      ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                          {processing ? "Saving to database…" : "Uploading…"}</>
+                      : zipFile
+                      ? `Import ${preview.validCount} products with images →`
+                      : `Import ${preview.validCount} products without images →`}
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ── FILE PICKER + PREVIEW ─────────────────────────────────────── */}
-          {!uploading && !processing && !result && (
-            <>
-              {/* Redux error */}
-              {error && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-                  <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="font-semibold text-red-800">Upload failed</p>
-                    <p className="text-sm text-red-700 mt-0.5">{error}</p>
-                  </div>
-                  <button onClick={reset} className="text-red-400 hover:text-red-600">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {parseError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-red-700 text-sm font-medium">⚠️ {parseError}</p>
-                </div>
-              )}
-
-              {/* Drop zone */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer select-none transition-all duration-200 ${
-                  isDragging
-                    ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
-                    : file
-                    ? "border-green-400 bg-green-50"
-                    : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"
-                }`}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => handleFile(e.target.files[0])}
-                />
-                {file ? (
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold text-gray-900">{file.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        {(file.size / 1024).toFixed(1)} KB · {preview.length} row{preview.length !== 1 ? "s" : ""} detected
-                      </p>
-                    </div>
-                    <button type="button"
-                      onClick={(e) => { e.stopPropagation(); reset(); }}
-                      className="ml-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-semibold text-gray-800">Drop your CSV file here</p>
-                    <p className="text-sm text-gray-500 mt-1">or click to browse · .csv files only</p>
-                    <p className="text-xs text-gray-400 mt-3">
-                      Required: <span className="font-mono text-indigo-600">name, category, basePrice</span>
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Column badges */}
-              {headers.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Detected Columns</p>
-                  <div className="flex flex-wrap gap-2">
-                    {REQUIRED_COLS.map((col) => (
-                      <span key={col}
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                          headers.includes(col)
-                            ? "bg-green-100 text-green-700 border-green-200"
-                            : "bg-red-100 text-red-700 border-red-200"
-                        }`}>
-                        {headers.includes(col) ? "✓" : "✗"} {col}
-                        {!headers.includes(col) && " (missing!)"}
-                      </span>
-                    ))}
-                    {IMPORTANT_COLS.filter((c) => headers.includes(c)).map((col) => (
-                      <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        ✓ {col}
-                      </span>
-                    ))}
-                    {headers
-                      .filter((h) => !REQUIRED_COLS.includes(h) && !IMPORTANT_COLS.includes(h))
-                      .map((col) => (
-                        <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                          {col}
-                        </span>
-                      ))}
-                  </div>
-                  {missingCols.length > 0 && (
-                    <p className="mt-2 text-sm text-red-600 font-medium">
-                      ⚠️ Missing required: <strong>{missingCols.join(", ")}</strong> — fix your CSV and re-upload.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Preview table */}
-              {preview.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-gray-700">
-                      Preview
-                      <span className="text-gray-400 font-normal ml-1">
-                        — first {Math.min(10, preview.length)} of {preview.length} rows · {headers.length} columns
-                      </span>
-                    </p>
-                  </div>
-                  <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto max-h-64">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-50 sticky top-0">
-                          <tr>
-                            <th className="px-3 py-2.5 text-left font-semibold text-gray-400 border-b border-gray-200">#</th>
-                            {headers.map((h) => (
-                              <th key={h}
-                                className={`px-3 py-2.5 text-left font-semibold border-b border-gray-200 whitespace-nowrap ${
-                                  REQUIRED_COLS.includes(h) ? "text-indigo-600" : "text-gray-500"
-                                }`}>
-                                {h}{REQUIRED_COLS.includes(h) && <span className="text-red-400">*</span>}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {preview.slice(0, 10).map((row, ri) => (
-                            <tr key={ri} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-gray-400">{ri + 1}</td>
-                              {headers.map((h) => (
-                                <td key={h}
-                                  title={row[h]}
-                                  className={`px-3 py-2 whitespace-nowrap max-w-[160px] truncate ${
-                                    REQUIRED_COLS.includes(h) ? "font-semibold text-gray-900" : "text-gray-600"
-                                  } ${!row[h] && REQUIRED_COLS.includes(h) ? "bg-red-50 text-red-500" : ""}`}>
-                                  {row[h] || <span className="text-gray-300 italic">—</span>}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {preview.length > 10 && (
-                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-center">
-                        <span className="text-xs text-gray-400">
-                          + {preview.length - 10} more row{preview.length - 10 !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Tip */}
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <p className="text-sm font-semibold text-amber-800 mb-1">📋 Multi-variant products</p>
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  Use <strong>multiple rows with the same product name</strong> to create variants.
-                  Each row = one variant. Use <span className="font-mono">variantAttributes</span> like{" "}
-                  <span className="font-mono bg-amber-100 px-1 rounded">Color:Black|Size:L</span> to differentiate them.
-                  Images are uploaded from comma-separated URLs in the <span className="font-mono">images</span> column (max 5 per variant).
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button onClick={() => { reset(); onClose(); }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpload}
-                  disabled={!canUpload}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  {preview.length > 0 ? `Import ${preview.length} Rows` : "Upload CSV"}
-                </button>
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -519,6 +604,1040 @@ const BulkUploadModal = ({ onClose, onSuccess }) => {
 };
 
 export default BulkUploadModal;
+
+// // PRODUCT_MODAL_SEGMENT/BulkUploadModal.jsx
+
+// import React, { useState, useRef, useCallback } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import {
+//   importProductsCSV,
+//   resetBulkUpload,
+//   setUploadPct,
+// } from "../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice"; // ✅ fixed import path
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Sample CSV template
+// // ─────────────────────────────────────────────────────────────────────────────
+// const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,images,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
+// Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567890,29999,24999,50,Color:Black|Size:One Size,Wireless:Yes|Driver:40mm,,false,0,false,viewing_now,0,0,,0.25,20,18,8
+// Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567891,29999,24999,30,Color:Silver|Size:One Size,,,false,0,false,viewing_now,0,0,,0.25,20,18,8
+// Nike Air Max 270,Nike Air Max 270 Running Shoes,Lightweight running shoes,Footwear,Nike,active,true,9876543210,8999,7499,100,Size:8|Color:White,Material:Mesh|Sole:Rubber,,true,245,true,product_left,0,15,,0.8,32,22,14`;
+
+// const downloadSampleCSV = () => {
+//   const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
+//   const url  = URL.createObjectURL(blob);
+//   const a    = document.createElement("a");
+//   a.href     = url;
+//   a.download = "bulk_upload_template.csv";
+//   a.click();
+//   URL.revokeObjectURL(url);
+// };
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Parse CSV text → array of row objects
+// // ─────────────────────────────────────────────────────────────────────────────
+// const parseCSV = (text) => {
+//   const lines = text.split(/\r?\n/).filter((l) => l.trim());
+//   if (lines.length < 2) return [];
+//   const headers = lines[0].split(",").map((h) => h.trim());
+//   return lines.slice(1).map((line) => {
+//     const values = [];
+//     let cur = "", inQ = false;
+//     for (let i = 0; i < line.length; i++) {
+//       const ch = line[i];
+//       if (ch === '"') { inQ = !inQ; }
+//       else if (ch === "," && !inQ) { values.push(cur.trim()); cur = ""; }
+//       else { cur += ch; }
+//     }
+//     values.push(cur.trim());
+//     const obj = {};
+//     headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
+//     return obj;
+//   });
+// };
+
+// const REQUIRED_COLS  = ["name", "category", "basePrice"];
+// const IMPORTANT_COLS = ["title", "brand", "status", "barcode", "salePrice", "quantity", "variantAttributes", "images"];
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Component
+// // ─────────────────────────────────────────────────────────────────────────────
+// const BulkUploadModal = ({ onClose, onSuccess }) => {
+//   const dispatch = useDispatch();
+//   const { uploading, uploadPct, processing, result, error } =
+//     useSelector((s) => s.adminBulkUpload);
+
+//   const fileInputRef             = useRef(null);
+//   const [file,       setFile]       = useState(null);
+//   const [preview,    setPreview]    = useState([]);
+//   const [headers,    setHeaders]    = useState([]);
+//   const [isDragging, setIsDragging] = useState(false);
+//   const [parseError, setParseError] = useState(null);
+//   const [localPct,   setLocalPct]   = useState(0);
+//   const [resultTab,  setResultTab]  = useState("success");
+
+//   const reset = () => {
+//     dispatch(resetBulkUpload());
+//     setFile(null);
+//     setPreview([]);
+//     setHeaders([]);
+//     setParseError(null);
+//     setLocalPct(0);
+//     setResultTab("success");
+//   };
+
+//   const handleFile = useCallback((f) => {
+//     if (!f) return;
+//     if (!f.name.toLowerCase().endsWith(".csv")) {
+//       setParseError("Only .csv files are supported.");
+//       return;
+//     }
+//     dispatch(resetBulkUpload());
+//     setParseError(null);
+//     setLocalPct(0);
+//     setFile(f);
+//     const reader = new FileReader();
+//     reader.onload = (e) => {
+//       try {
+//         const rows = parseCSV(e.target.result);
+//         if (!rows.length) { setParseError("CSV appears to be empty."); return; }
+//         setHeaders(Object.keys(rows[0]));
+//         setPreview(rows);
+//       } catch (err) {
+//         setParseError("Could not parse CSV: " + err.message);
+//       }
+//     };
+//     reader.readAsText(f);
+//   }, [dispatch]);
+
+//   const onDrop = (e) => {
+//     e.preventDefault();
+//     setIsDragging(false);
+//     handleFile(e.dataTransfer.files[0]);
+//   };
+
+//   const handleUpload = async () => {
+//     if (!file) return;
+//     const res = await dispatch(
+//       importProductsCSV({
+//         file,
+//         onProgress: (pct) => {
+//           setLocalPct(pct);
+//           dispatch(setUploadPct(pct));
+//         },
+//       })
+//     );
+//     if (importProductsCSV.fulfilled.match(res)) {
+//       onSuccess?.();
+//     }
+//   };
+
+//   const missingCols = REQUIRED_COLS.filter((c) => !headers.includes(c));
+//   const canUpload   = file && !parseError && missingCols.length === 0 && !uploading && !result;
+//   const isActive    = uploading || processing;
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[10%]">
+//       <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl flex flex-col">
+
+//         {/* ── Header ─────────────────────────────────────────────────────── */}
+//         <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+//           <div className="flex items-center gap-3">
+//             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+//               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//               </svg>
+//             </div>
+//             <div>
+//               <h2 className="text-xl font-bold text-gray-900">Bulk Upload Products</h2>
+//               <p className="text-sm text-gray-500">Import multiple products at once via CSV file</p>
+//             </div>
+//           </div>
+//           <div className="flex items-center gap-3">
+//             <button onClick={downloadSampleCSV}
+//               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+//               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+//               </svg>
+//               Download Template
+//             </button>
+//             <button onClick={() => { reset(); onClose(); }} disabled={isActive}
+//               className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-40 transition-colors">
+//               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//               </svg>
+//             </button>
+//           </div>
+//         </div>
+
+//         <div className="p-6 space-y-6">
+
+//           {/* ── RESULT PANEL ──────────────────────────────────────────────── */}
+//           {result && (
+//             <div className="space-y-5">
+//               <div className="grid grid-cols-3 gap-4">
+//                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+//                   <p className="text-3xl font-bold text-blue-700">{result.totalRows}</p>
+//                   <p className="text-sm text-blue-600 mt-1">Total Rows</p>
+//                 </div>
+//                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+//                   <p className="text-3xl font-bold text-green-700">{result.insertedProducts}</p>
+//                   <p className="text-sm text-green-600 mt-1">Products Created</p>
+//                 </div>
+//                 <div className={`rounded-xl p-4 text-center border ${result.failedCount > 0 ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+//                   <p className={`text-3xl font-bold ${result.failedCount > 0 ? "text-red-700" : "text-gray-400"}`}>{result.failedCount}</p>
+//                   <p className={`text-sm mt-1 ${result.failedCount > 0 ? "text-red-600" : "text-gray-400"}`}>Failed Rows</p>
+//                 </div>
+//               </div>
+
+//               {result.failedCount > 0 ? (
+//                 <div>
+//                   <div className="flex gap-2 mb-3">
+//                     <button onClick={() => setResultTab("success")}
+//                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "success" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+//                       ✅ Succeeded ({result.insertedProducts})
+//                     </button>
+//                     <button onClick={() => setResultTab("failed")}
+//                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "failed" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+//                       ❌ Failed ({result.failedCount})
+//                     </button>
+//                   </div>
+
+//                   {resultTab === "failed" && (
+//                     <div className="border border-red-200 rounded-xl overflow-hidden">
+//                       <table className="w-full text-sm">
+//                         <thead className="bg-red-50">
+//                           <tr>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700 w-10">#</th>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700">Product</th>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700">Error</th>
+//                           </tr>
+//                         </thead>
+//                         <tbody className="divide-y divide-red-100">
+//                           {result.failed.map((f, i) => (
+//                             <tr key={i} className="hover:bg-red-50">
+//                               <td className="px-4 py-2.5 text-gray-400">{i + 1}</td>
+//                               <td className="px-4 py-2.5 font-medium text-gray-800">{f.product}</td>
+//                               <td className="px-4 py-2.5 text-red-600">{f.error}</td>
+//                             </tr>
+//                           ))}
+//                         </tbody>
+//                       </table>
+//                     </div>
+//                   )}
+
+//                   {resultTab === "success" && (
+//                     <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+//                       <p className="text-green-700 text-sm font-medium">
+//                         🎉 {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} successfully imported and are now visible in your product list.
+//                       </p>
+//                     </div>
+//                   )}
+//                 </div>
+//               ) : (
+//                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+//                   <p className="text-green-700 text-sm font-medium">
+//                     🎉 All {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} imported successfully! Head back to your product list to see them.
+//                   </p>
+//                 </div>
+//               )}
+
+//               <div className="flex gap-3">
+//                 <button onClick={reset}
+//                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+//                   Upload Another File
+//                 </button>
+//                 <button onClick={() => { reset(); onClose(); }}
+//                   className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow">
+//                   Done
+//                 </button>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* ── PROGRESS ──────────────────────────────────────────────────── */}
+//           {(uploading || processing) && !result && (
+//             <div className="space-y-5">
+//               <div className="p-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl text-center">
+//                 <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+//                 <p className="font-bold text-indigo-800 text-xl">
+//                   {processing ? "Processing on server…" : `Uploading file — ${localPct}%`}
+//                 </p>
+//                 <p className="text-indigo-600 text-sm mt-2 max-w-sm mx-auto">
+//                   {processing
+//                     ? "Server is creating products, uploading images to Cloudinary and saving to database. This may take 1–2 minutes for large files."
+//                     : "Sending your CSV to the server…"}
+//                 </p>
+//               </div>
+
+//               <div className="space-y-2">
+//                 <div className="flex justify-between text-sm font-medium text-gray-600">
+//                   <span>{processing ? "Server processing…" : "Uploading…"}</span>
+//                   <span className="text-indigo-600">{processing ? "100% ✓" : `${localPct}%`}</span>
+//                 </div>
+//                 <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+//                   <div
+//                     className="h-4 rounded-full transition-all duration-500"
+//                     style={{
+//                       width:      `${processing ? 100 : localPct}%`,
+//                       background: "linear-gradient(90deg, #6366f1, #a855f7)",
+//                     }}
+//                   />
+//                 </div>
+//                 {processing && (
+//                   <div className="flex items-center justify-center gap-1.5 mt-3">
+//                     {[0, 0.15, 0.30].map((delay, i) => (
+//                       <span key={i}
+//                         className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-bounce"
+//                         style={{ animationDelay: `${delay}s` }} />
+//                     ))}
+//                     <span className="ml-2 text-sm text-indigo-600">Creating products…</span>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* ── FILE PICKER + PREVIEW ─────────────────────────────────────── */}
+//           {!uploading && !processing && !result && (
+//             <>
+//               {error && (
+//                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+//                   <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                       d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+//                   </svg>
+//                   <div className="flex-1">
+//                     <p className="font-semibold text-red-800">Upload failed</p>
+//                     <p className="text-sm text-red-700 mt-0.5">{error}</p>
+//                   </div>
+//                   <button onClick={reset} className="text-red-400 hover:text-red-600">
+//                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//                     </svg>
+//                   </button>
+//                 </div>
+//               )}
+
+//               {parseError && (
+//                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+//                   <p className="text-red-700 text-sm font-medium">⚠️ {parseError}</p>
+//                 </div>
+//               )}
+
+//               {/* Drop zone */}
+//               <div
+//                 onClick={() => fileInputRef.current?.click()}
+//                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+//                 onDragLeave={() => setIsDragging(false)}
+//                 onDrop={onDrop}
+//                 className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer select-none transition-all duration-200 ${
+//                   isDragging
+//                     ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
+//                     : file
+//                     ? "border-green-400 bg-green-50"
+//                     : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"
+//                 }`}>
+//                 <input
+//                   ref={fileInputRef}
+//                   type="file"
+//                   accept=".csv"
+//                   className="hidden"
+//                   onChange={(e) => handleFile(e.target.files[0])}
+//                 />
+//                 {file ? (
+//                   <div className="flex items-center justify-center gap-4">
+//                     <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+//                       <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+//                       </svg>
+//                     </div>
+//                     <div className="text-left">
+//                       <p className="font-semibold text-gray-900">{file.name}</p>
+//                       <p className="text-sm text-gray-500 mt-0.5">
+//                         {(file.size / 1024).toFixed(1)} KB · {preview.length} row{preview.length !== 1 ? "s" : ""} detected
+//                       </p>
+//                     </div>
+//                     <button type="button"
+//                       onClick={(e) => { e.stopPropagation(); reset(); }}
+//                       className="ml-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+//                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//                       </svg>
+//                     </button>
+//                   </div>
+//                 ) : (
+//                   <>
+//                     <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+//                       <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+//                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//                       </svg>
+//                     </div>
+//                     <p className="text-lg font-semibold text-gray-800">Drop your CSV file here</p>
+//                     <p className="text-sm text-gray-500 mt-1">or click to browse · .csv files only</p>
+//                     <p className="text-xs text-gray-400 mt-3">
+//                       Required: <span className="font-mono text-indigo-600">name, category, basePrice</span>
+//                     </p>
+//                   </>
+//                 )}
+//               </div>
+
+//               {/* Column badges */}
+//               {headers.length > 0 && (
+//                 <div>
+//                   <p className="text-sm font-semibold text-gray-700 mb-2">Detected Columns</p>
+//                   <div className="flex flex-wrap gap-2">
+//                     {REQUIRED_COLS.map((col) => (
+//                       <span key={col}
+//                         className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+//                           headers.includes(col)
+//                             ? "bg-green-100 text-green-700 border-green-200"
+//                             : "bg-red-100 text-red-700 border-red-200"
+//                         }`}>
+//                         {headers.includes(col) ? "✓" : "✗"} {col}
+//                         {!headers.includes(col) && " (missing!)"}
+//                       </span>
+//                     ))}
+//                     {IMPORTANT_COLS.filter((c) => headers.includes(c)).map((col) => (
+//                       <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+//                         ✓ {col}
+//                       </span>
+//                     ))}
+//                     {headers
+//                       .filter((h) => !REQUIRED_COLS.includes(h) && !IMPORTANT_COLS.includes(h))
+//                       .map((col) => (
+//                         <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+//                           {col}
+//                         </span>
+//                       ))}
+//                   </div>
+//                   {missingCols.length > 0 && (
+//                     <p className="mt-2 text-sm text-red-600 font-medium">
+//                       ⚠️ Missing required: <strong>{missingCols.join(", ")}</strong> — fix your CSV and re-upload.
+//                     </p>
+//                   )}
+//                 </div>
+//               )}
+
+//               {/* Preview table */}
+//               {preview.length > 0 && (
+//                 <div>
+//                   <div className="flex items-center justify-between mb-2">
+//                     <p className="text-sm font-semibold text-gray-700">
+//                       Preview
+//                       <span className="text-gray-400 font-normal ml-1">
+//                         — first {Math.min(10, preview.length)} of {preview.length} rows · {headers.length} columns
+//                       </span>
+//                     </p>
+//                   </div>
+//                   <div className="border border-gray-200 rounded-xl overflow-hidden">
+//                     <div className="overflow-x-auto max-h-64">
+//                       <table className="w-full text-xs">
+//                         <thead className="bg-gray-50 sticky top-0">
+//                           <tr>
+//                             <th className="px-3 py-2.5 text-left font-semibold text-gray-400 border-b border-gray-200">#</th>
+//                             {headers.map((h) => (
+//                               <th key={h}
+//                                 className={`px-3 py-2.5 text-left font-semibold border-b border-gray-200 whitespace-nowrap ${
+//                                   REQUIRED_COLS.includes(h) ? "text-indigo-600" : "text-gray-500"
+//                                 }`}>
+//                                 {h}{REQUIRED_COLS.includes(h) && <span className="text-red-400">*</span>}
+//                               </th>
+//                             ))}
+//                           </tr>
+//                         </thead>
+//                         <tbody className="divide-y divide-gray-100">
+//                           {preview.slice(0, 10).map((row, ri) => (
+//                             <tr key={ri} className="hover:bg-gray-50">
+//                               <td className="px-3 py-2 text-gray-400">{ri + 1}</td>
+//                               {headers.map((h) => (
+//                                 <td key={h}
+//                                   title={row[h]}
+//                                   className={`px-3 py-2 whitespace-nowrap max-w-[160px] truncate ${
+//                                     REQUIRED_COLS.includes(h) ? "font-semibold text-gray-900" : "text-gray-600"
+//                                   } ${!row[h] && REQUIRED_COLS.includes(h) ? "bg-red-50 text-red-500" : ""}`}>
+//                                   {row[h] || <span className="text-gray-300 italic">—</span>}
+//                                 </td>
+//                               ))}
+//                             </tr>
+//                           ))}
+//                         </tbody>
+//                       </table>
+//                     </div>
+//                     {preview.length > 10 && (
+//                       <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-center">
+//                         <span className="text-xs text-gray-400">
+//                           + {preview.length - 10} more row{preview.length - 10 !== 1 ? "s" : ""}
+//                         </span>
+//                       </div>
+//                     )}
+//                   </div>
+//                 </div>
+//               )}
+
+//               {/* Tip */}
+//               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+//                 <p className="text-sm font-semibold text-amber-800 mb-1">📋 Multi-variant products</p>
+//                 <p className="text-xs text-amber-700 leading-relaxed">
+//                   Use <strong>multiple rows with the same product name</strong> to create variants.
+//                   Each row = one variant. Use <span className="font-mono">variantAttributes</span> like{" "}
+//                   <span className="font-mono bg-amber-100 px-1 rounded">Color:Black|Size:L</span> to differentiate them.
+//                   Images are uploaded from comma-separated URLs in the <span className="font-mono">images</span> column (max 5 per variant).
+//                 </p>
+//               </div>
+
+//               {/* Actions */}
+//               <div className="flex gap-3">
+//                 <button onClick={() => { reset(); onClose(); }}
+//                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
+//                   Cancel
+//                 </button>
+//                 <button
+//                   onClick={handleUpload}
+//                   disabled={!canUpload}
+//                   className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none">
+//                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//                   </svg>
+//                   {preview.length > 0 ? `Import ${preview.length} Rows` : "Upload CSV"}
+//                 </button>
+//               </div>
+//             </>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BulkUploadModal;
+// DOWN CODE IS ALSO WORK BUT TIME OUT ERROR OR UPLOAD FILE NOT THE CSV Type 
+
+// // PRODUCT_MODAL_SEGMENT/BulkUploadModal.jsx
+// //
+// // FEATURES:
+// //  • Drag & drop or click-to-browse CSV upload
+// //  • Browser-side CSV preview table (parsed before upload)
+// //  • Column validation badges — shows which required/optional cols detected
+// //  • Download sample CSV template button
+// //  • Upload progress bar (0→100% file transfer)
+// //  • "Processing on server…" spinner after upload hits 100%
+// //  • Results panel: inserted count, failed count, failed rows table
+// //  • On success → calls onSuccess() so parent re-fetches products
+
+// import React, { useState, useRef, useCallback } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import {
+//   importProductsCSV,
+//   resetBulkUpload,
+//   setUploadPct,
+// } from "../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Sample CSV template
+// // ─────────────────────────────────────────────────────────────────────────────
+// const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,images,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
+// Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567890,29999,24999,50,Color:Black|Size:One Size,Wireless:Yes|Driver:40mm,,false,0,false,viewing_now,0,0,,0.25,20,18,8
+// Sony WH-1000XM5,Sony WH-1000XM5 Headphones,Industry leading noise cancellation,Electronics,Sony,active,false,1234567891,29999,24999,30,Color:Silver|Size:One Size,,,false,0,false,viewing_now,0,0,,0.25,20,18,8
+// Nike Air Max 270,Nike Air Max 270 Running Shoes,Lightweight running shoes,Footwear,Nike,active,true,9876543210,8999,7499,100,Size:8|Color:White,Material:Mesh|Sole:Rubber,,true,245,true,product_left,0,15,,0.8,32,22,14`;
+
+// const downloadSampleCSV = () => {
+//   const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
+//   const url  = URL.createObjectURL(blob);
+//   const a    = document.createElement("a");
+//   a.href     = url;
+//   a.download = "bulk_upload_template.csv";
+//   a.click();
+//   URL.revokeObjectURL(url);
+// };
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Parse CSV text → array of row objects
+// // ─────────────────────────────────────────────────────────────────────────────
+// const parseCSV = (text) => {
+//   const lines = text.split(/\r?\n/).filter((l) => l.trim());
+//   if (lines.length < 2) return [];
+//   const headers = lines[0].split(",").map((h) => h.trim());
+//   return lines.slice(1).map((line) => {
+//     const values = [];
+//     let cur = "", inQ = false;
+//     for (let i = 0; i < line.length; i++) {
+//       const ch = line[i];
+//       if (ch === '"') { inQ = !inQ; }
+//       else if (ch === "," && !inQ) { values.push(cur.trim()); cur = ""; }
+//       else { cur += ch; }
+//     }
+//     values.push(cur.trim());
+//     const obj = {};
+//     headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
+//     return obj;
+//   });
+// };
+
+// const REQUIRED_COLS  = ["name", "category", "basePrice"];
+// const IMPORTANT_COLS = ["title", "brand", "status", "barcode", "salePrice", "quantity", "variantAttributes", "images"];
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Component
+// // ─────────────────────────────────────────────────────────────────────────────
+// const BulkUploadModal = ({ onClose, onSuccess }) => {
+//   const dispatch = useDispatch();
+//   const { uploading, uploadPct, processing, result, error } =
+//     useSelector((s) => s.adminBulkUpload);
+
+//   const fileInputRef             = useRef(null);
+//   const [file,       setFile]       = useState(null);
+//   const [preview,    setPreview]    = useState([]);
+//   const [headers,    setHeaders]    = useState([]);
+//   const [isDragging, setIsDragging] = useState(false);
+//   const [parseError, setParseError] = useState(null);
+//   const [localPct,   setLocalPct]   = useState(0);
+//   const [resultTab,  setResultTab]  = useState("success");
+
+//   const reset = () => {
+//     dispatch(resetBulkUpload());
+//     setFile(null);
+//     setPreview([]);
+//     setHeaders([]);
+//     setParseError(null);
+//     setLocalPct(0);
+//     setResultTab("success");
+//   };
+
+//   const handleFile = useCallback((f) => {
+//     if (!f) return;
+//     if (!f.name.toLowerCase().endsWith(".csv")) {
+//       setParseError("Only .csv files are supported.");
+//       return;
+//     }
+//     dispatch(resetBulkUpload());
+//     setParseError(null);
+//     setLocalPct(0);
+//     setFile(f);
+//     const reader = new FileReader();
+//     reader.onload = (e) => {
+//       try {
+//         const rows = parseCSV(e.target.result);
+//         if (!rows.length) { setParseError("CSV appears to be empty."); return; }
+//         setHeaders(Object.keys(rows[0]));
+//         setPreview(rows);
+//       } catch (err) {
+//         setParseError("Could not parse CSV: " + err.message);
+//       }
+//     };
+//     reader.readAsText(f);
+//   }, [dispatch]);
+
+//   const onDrop = (e) => {
+//     e.preventDefault();
+//     setIsDragging(false);
+//     handleFile(e.dataTransfer.files[0]);
+//   };
+
+//   const handleUpload = async () => {
+//     if (!file) return;
+//     const res = await dispatch(
+//       importProductsCSV({
+//         file,
+//         onProgress: (pct) => {
+//           setLocalPct(pct);
+//           dispatch(setUploadPct(pct));
+//         },
+//       })
+//     );
+//     if (importProductsCSV.fulfilled.match(res)) {
+//       onSuccess?.();
+//     }
+//   };
+
+//   const missingCols = REQUIRED_COLS.filter((c) => !headers.includes(c));
+//   const canUpload   = file && !parseError && missingCols.length === 0 && !uploading && !result;
+//   const isActive    = uploading || processing;
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[10%]">
+//       <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl flex flex-col">
+
+//         {/* ── Header ─────────────────────────────────────────────────────── */}
+//         <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+//           <div className="flex items-center gap-3">
+//             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+//               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//               </svg>
+//             </div>
+//             <div>
+//               <h2 className="text-xl font-bold text-gray-900">Bulk Upload Products</h2>
+//               <p className="text-sm text-gray-500">Import multiple products at once via CSV file</p>
+//             </div>
+//           </div>
+//           <div className="flex items-center gap-3">
+//             <button onClick={downloadSampleCSV}
+//               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+//               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+//               </svg>
+//               Download Template
+//             </button>
+//             <button onClick={() => { reset(); onClose(); }} disabled={isActive}
+//               className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-40 transition-colors">
+//               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//               </svg>
+//             </button>
+//           </div>
+//         </div>
+
+//         <div className="p-6 space-y-6">
+
+//           {/* ── RESULT PANEL ──────────────────────────────────────────────── */}
+//           {result && (
+//             <div className="space-y-5">
+//               <div className="grid grid-cols-3 gap-4">
+//                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+//                   <p className="text-3xl font-bold text-blue-700">{result.totalRows}</p>
+//                   <p className="text-sm text-blue-600 mt-1">Total Rows</p>
+//                 </div>
+//                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+//                   <p className="text-3xl font-bold text-green-700">{result.insertedProducts}</p>
+//                   <p className="text-sm text-green-600 mt-1">Products Created</p>
+//                 </div>
+//                 <div className={`rounded-xl p-4 text-center border ${result.failedCount > 0 ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+//                   <p className={`text-3xl font-bold ${result.failedCount > 0 ? "text-red-700" : "text-gray-400"}`}>{result.failedCount}</p>
+//                   <p className={`text-sm mt-1 ${result.failedCount > 0 ? "text-red-600" : "text-gray-400"}`}>Failed Rows</p>
+//                 </div>
+//               </div>
+
+//               {result.failedCount > 0 ? (
+//                 <div>
+//                   <div className="flex gap-2 mb-3">
+//                     <button onClick={() => setResultTab("success")}
+//                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "success" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+//                       ✅ Succeeded ({result.insertedProducts})
+//                     </button>
+//                     <button onClick={() => setResultTab("failed")}
+//                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${resultTab === "failed" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+//                       ❌ Failed ({result.failedCount})
+//                     </button>
+//                   </div>
+
+//                   {resultTab === "failed" && (
+//                     <div className="border border-red-200 rounded-xl overflow-hidden">
+//                       <table className="w-full text-sm">
+//                         <thead className="bg-red-50">
+//                           <tr>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700 w-10">#</th>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700">Product</th>
+//                             <th className="px-4 py-3 text-left font-medium text-red-700">Error</th>
+//                           </tr>
+//                         </thead>
+//                         <tbody className="divide-y divide-red-100">
+//                           {result.failed.map((f, i) => (
+//                             <tr key={i} className="hover:bg-red-50">
+//                               <td className="px-4 py-2.5 text-gray-400">{i + 1}</td>
+//                               <td className="px-4 py-2.5 font-medium text-gray-800">{f.product}</td>
+//                               <td className="px-4 py-2.5 text-red-600">{f.error}</td>
+//                             </tr>
+//                           ))}
+//                         </tbody>
+//                       </table>
+//                     </div>
+//                   )}
+
+//                   {resultTab === "success" && (
+//                     <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+//                       <p className="text-green-700 text-sm font-medium">
+//                         🎉 {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} successfully imported and are now visible in your product list.
+//                       </p>
+//                     </div>
+//                   )}
+//                 </div>
+//               ) : (
+//                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+//                   <p className="text-green-700 text-sm font-medium">
+//                     🎉 All {result.insertedProducts} product{result.insertedProducts !== 1 ? "s" : ""} imported successfully! Head back to your product list to see them.
+//                   </p>
+//                 </div>
+//               )}
+
+//               <div className="flex gap-3">
+//                 <button onClick={reset}
+//                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+//                   Upload Another File
+//                 </button>
+//                 <button onClick={() => { reset(); onClose(); }}
+//                   className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow">
+//                   Done
+//                 </button>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* ── PROGRESS ──────────────────────────────────────────────────── */}
+//           {(uploading || processing) && !result && (
+//             <div className="space-y-5">
+//               <div className="p-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl text-center">
+//                 <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+//                 <p className="font-bold text-indigo-800 text-xl">
+//                   {processing ? "Processing on server…" : `Uploading file — ${localPct}%`}
+//                 </p>
+//                 <p className="text-indigo-600 text-sm mt-2 max-w-sm mx-auto">
+//                   {processing
+//                     ? "Server is creating products, uploading images from URLs and saving everything to the database. This may take a minute for large files."
+//                     : "Sending your CSV to the server…"}
+//                 </p>
+//               </div>
+
+//               <div className="space-y-2">
+//                 <div className="flex justify-between text-sm font-medium text-gray-600">
+//                   <span>{processing ? "Server processing…" : "Uploading…"}</span>
+//                   <span className="text-indigo-600">{processing ? "100% ✓" : `${localPct}%`}</span>
+//                 </div>
+//                 <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+//                   <div
+//                     className="h-4 rounded-full transition-all duration-500"
+//                     style={{
+//                       width:      `${processing ? 100 : localPct}%`,
+//                       background: "linear-gradient(90deg, #6366f1, #a855f7)",
+//                     }}
+//                   />
+//                 </div>
+//                 {processing && (
+//                   <div className="flex items-center justify-center gap-1.5 mt-3">
+//                     {[0, 0.15, 0.30].map((delay, i) => (
+//                       <span key={i}
+//                         className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-bounce"
+//                         style={{ animationDelay: `${delay}s` }} />
+//                     ))}
+//                     <span className="ml-2 text-sm text-indigo-600">Creating products…</span>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* ── FILE PICKER + PREVIEW ─────────────────────────────────────── */}
+//           {!uploading && !processing && !result && (
+//             <>
+//               {/* Redux error */}
+//               {error && (
+//                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+//                   <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                       d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+//                   </svg>
+//                   <div className="flex-1">
+//                     <p className="font-semibold text-red-800">Upload failed</p>
+//                     <p className="text-sm text-red-700 mt-0.5">{error}</p>
+//                   </div>
+//                   <button onClick={reset} className="text-red-400 hover:text-red-600">
+//                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//                     </svg>
+//                   </button>
+//                 </div>
+//               )}
+
+//               {parseError && (
+//                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+//                   <p className="text-red-700 text-sm font-medium">⚠️ {parseError}</p>
+//                 </div>
+//               )}
+
+//               {/* Drop zone */}
+//               <div
+//                 onClick={() => fileInputRef.current?.click()}
+//                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+//                 onDragLeave={() => setIsDragging(false)}
+//                 onDrop={onDrop}
+//                 className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer select-none transition-all duration-200 ${
+//                   isDragging
+//                     ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
+//                     : file
+//                     ? "border-green-400 bg-green-50"
+//                     : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"
+//                 }`}>
+//                 <input
+//                   ref={fileInputRef}
+//                   type="file"
+//                   accept=".csv"
+//                   className="hidden"
+//                   onChange={(e) => handleFile(e.target.files[0])}
+//                 />
+//                 {file ? (
+//                   <div className="flex items-center justify-center gap-4">
+//                     <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+//                       <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+//                       </svg>
+//                     </div>
+//                     <div className="text-left">
+//                       <p className="font-semibold text-gray-900">{file.name}</p>
+//                       <p className="text-sm text-gray-500 mt-0.5">
+//                         {(file.size / 1024).toFixed(1)} KB · {preview.length} row{preview.length !== 1 ? "s" : ""} detected
+//                       </p>
+//                     </div>
+//                     <button type="button"
+//                       onClick={(e) => { e.stopPropagation(); reset(); }}
+//                       className="ml-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+//                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//                       </svg>
+//                     </button>
+//                   </div>
+//                 ) : (
+//                   <>
+//                     <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+//                       <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+//                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//                       </svg>
+//                     </div>
+//                     <p className="text-lg font-semibold text-gray-800">Drop your CSV file here</p>
+//                     <p className="text-sm text-gray-500 mt-1">or click to browse · .csv files only</p>
+//                     <p className="text-xs text-gray-400 mt-3">
+//                       Required: <span className="font-mono text-indigo-600">name, category, basePrice</span>
+//                     </p>
+//                   </>
+//                 )}
+//               </div>
+
+//               {/* Column badges */}
+//               {headers.length > 0 && (
+//                 <div>
+//                   <p className="text-sm font-semibold text-gray-700 mb-2">Detected Columns</p>
+//                   <div className="flex flex-wrap gap-2">
+//                     {REQUIRED_COLS.map((col) => (
+//                       <span key={col}
+//                         className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+//                           headers.includes(col)
+//                             ? "bg-green-100 text-green-700 border-green-200"
+//                             : "bg-red-100 text-red-700 border-red-200"
+//                         }`}>
+//                         {headers.includes(col) ? "✓" : "✗"} {col}
+//                         {!headers.includes(col) && " (missing!)"}
+//                       </span>
+//                     ))}
+//                     {IMPORTANT_COLS.filter((c) => headers.includes(c)).map((col) => (
+//                       <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+//                         ✓ {col}
+//                       </span>
+//                     ))}
+//                     {headers
+//                       .filter((h) => !REQUIRED_COLS.includes(h) && !IMPORTANT_COLS.includes(h))
+//                       .map((col) => (
+//                         <span key={col} className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+//                           {col}
+//                         </span>
+//                       ))}
+//                   </div>
+//                   {missingCols.length > 0 && (
+//                     <p className="mt-2 text-sm text-red-600 font-medium">
+//                       ⚠️ Missing required: <strong>{missingCols.join(", ")}</strong> — fix your CSV and re-upload.
+//                     </p>
+//                   )}
+//                 </div>
+//               )}
+
+//               {/* Preview table */}
+//               {preview.length > 0 && (
+//                 <div>
+//                   <div className="flex items-center justify-between mb-2">
+//                     <p className="text-sm font-semibold text-gray-700">
+//                       Preview
+//                       <span className="text-gray-400 font-normal ml-1">
+//                         — first {Math.min(10, preview.length)} of {preview.length} rows · {headers.length} columns
+//                       </span>
+//                     </p>
+//                   </div>
+//                   <div className="border border-gray-200 rounded-xl overflow-hidden">
+//                     <div className="overflow-x-auto max-h-64">
+//                       <table className="w-full text-xs">
+//                         <thead className="bg-gray-50 sticky top-0">
+//                           <tr>
+//                             <th className="px-3 py-2.5 text-left font-semibold text-gray-400 border-b border-gray-200">#</th>
+//                             {headers.map((h) => (
+//                               <th key={h}
+//                                 className={`px-3 py-2.5 text-left font-semibold border-b border-gray-200 whitespace-nowrap ${
+//                                   REQUIRED_COLS.includes(h) ? "text-indigo-600" : "text-gray-500"
+//                                 }`}>
+//                                 {h}{REQUIRED_COLS.includes(h) && <span className="text-red-400">*</span>}
+//                               </th>
+//                             ))}
+//                           </tr>
+//                         </thead>
+//                         <tbody className="divide-y divide-gray-100">
+//                           {preview.slice(0, 10).map((row, ri) => (
+//                             <tr key={ri} className="hover:bg-gray-50">
+//                               <td className="px-3 py-2 text-gray-400">{ri + 1}</td>
+//                               {headers.map((h) => (
+//                                 <td key={h}
+//                                   title={row[h]}
+//                                   className={`px-3 py-2 whitespace-nowrap max-w-[160px] truncate ${
+//                                     REQUIRED_COLS.includes(h) ? "font-semibold text-gray-900" : "text-gray-600"
+//                                   } ${!row[h] && REQUIRED_COLS.includes(h) ? "bg-red-50 text-red-500" : ""}`}>
+//                                   {row[h] || <span className="text-gray-300 italic">—</span>}
+//                                 </td>
+//                               ))}
+//                             </tr>
+//                           ))}
+//                         </tbody>
+//                       </table>
+//                     </div>
+//                     {preview.length > 10 && (
+//                       <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-center">
+//                         <span className="text-xs text-gray-400">
+//                           + {preview.length - 10} more row{preview.length - 10 !== 1 ? "s" : ""}
+//                         </span>
+//                       </div>
+//                     )}
+//                   </div>
+//                 </div>
+//               )}
+
+//               {/* Tip */}
+//               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+//                 <p className="text-sm font-semibold text-amber-800 mb-1">📋 Multi-variant products</p>
+//                 <p className="text-xs text-amber-700 leading-relaxed">
+//                   Use <strong>multiple rows with the same product name</strong> to create variants.
+//                   Each row = one variant. Use <span className="font-mono">variantAttributes</span> like{" "}
+//                   <span className="font-mono bg-amber-100 px-1 rounded">Color:Black|Size:L</span> to differentiate them.
+//                   Images are uploaded from comma-separated URLs in the <span className="font-mono">images</span> column (max 5 per variant).
+//                 </p>
+//               </div>
+
+//               {/* Actions */}
+//               <div className="flex gap-3">
+//                 <button onClick={() => { reset(); onClose(); }}
+//                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
+//                   Cancel
+//                 </button>
+//                 <button
+//                   onClick={handleUpload}
+//                   disabled={!canUpload}
+//                   className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none">
+//                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+//                   </svg>
+//                   {preview.length > 0 ? `Import ${preview.length} Rows` : "Upload CSV"}
+//                 </button>
+//               </div>
+//             </>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BulkUploadModal;
 // import React, { useState, useCallback } from 'react';
 // import { useDispatch, useSelector } from 'react-redux';
 // import { useDropzone } from 'react-dropzone';

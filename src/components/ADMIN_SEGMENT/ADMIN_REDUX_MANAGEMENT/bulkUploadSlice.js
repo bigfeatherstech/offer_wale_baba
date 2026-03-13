@@ -1,96 +1,346 @@
-// ADMIN_REDUX_MANAGEMENT/adminBulkUploadSlice.js
-//
-// Handles bulk product import via CSV
-// Endpoint: POST /admin/products/import-csv
-// Multer expects field name: "file" (CSV)
+
+// ============================================================
+// adminBulkUploadSlice.js
+// TWO-STEP BULK UPLOAD STATE MANAGEMENT
+// Step 1: previewCSV  → parse + show preview
+// Step 2: importZip   → upload ZIP + confirm save to DB
+// ============================================================
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// THUNK — uploads CSV file and tracks progress via onUploadProgress
-// ─────────────────────────────────────────────────────────────────────────────
-export const importProductsCSV = createAsyncThunk(
-  "adminBulkUpload/importCSV",
+// ─────────────────────────────────────────────────────────────
+// STEP 1 THUNK — Upload CSV, get preview back
+// POST /admin/products/preview-csv
+// ─────────────────────────────────────────────────────────────
+export const previewCSV = createAsyncThunk(
+  "adminBulkUpload/previewCSV",
   async ({ file, onProgress }, { rejectWithValue }) => {
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("csvFile", file);
 
-      const response = await axiosInstance.post(
-        "/admin/products/import-csv",
-        fd,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total && onProgress) {
-              const pct = Math.round(
-                (progressEvent.loaded / progressEvent.total) * 100
-              );
-              onProgress(pct);
-            }
-          },
-        }
-      );
+      const res = await axiosInstance.post("/admin/products/preview-csv", fd, {
+        headers : { "Content-Type": "multipart/form-data" },
+        timeout : 60000, // 1 min — just parsing, no Cloudinary
+        onUploadProgress: (e) => {
+          if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+        },
+      });
 
-      if (response.data.success) return response.data;
-      return rejectWithValue(response.data.message || "Import failed");
+      if (res.data.success) return res.data;
+      return rejectWithValue(res.data.message || "Preview failed");
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);
     }
   }
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// STEP 2 THUNK — Upload ZIP + parsed products → save to DB
+// POST /admin/products/import-zip
+// ─────────────────────────────────────────────────────────────
+export const importZip = createAsyncThunk(
+  "adminBulkUpload/importZip",
+  async ({ zipFile, parsedProducts, onProgress }, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+      if (zipFile) fd.append("zipFile", zipFile);
+      fd.append("products", JSON.stringify(parsedProducts));
+
+      const res = await axiosInstance.post("/admin/products/import-csv", fd, {
+        headers : { "Content-Type": "multipart/form-data" },
+        timeout : 600000, // 10 min — Cloudinary uploads can be slow on large batches
+        onUploadProgress: (e) => {
+          if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+        },
+      });
+
+      if (res.data.success) return res.data;
+      return rejectWithValue(res.data.message || "Import failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────
 // SLICE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 const adminBulkUploadSlice = createSlice({
   name: "adminBulkUpload",
   initialState: {
-    uploading:  false,
-    uploadPct:  0,       // 0–100 file upload progress
-    processing: false,   // true while backend processes rows after upload hits 100%
-    result:     null,    // { totalRows, insertedProducts, failedCount, failed[] }
-    error:      null,
+    // Step 1
+    csvUploading  : false,
+    csvUploadPct  : 0,
+    preview       : null,   // { totalProducts, validCount, invalidCount, preview[], _parsedData[] }
+    csvError      : null,
+
+    // Step 2
+    zipUploading  : false,
+    zipUploadPct  : 0,
+    processing    : false,
+    result        : null,   // final import report
+    zipError      : null,
   },
+
   reducers: {
-    setUploadPct: (state, { payload }) => {
-      state.uploadPct  = payload;
-      state.processing = payload === 100;
+    setCsvPct: (state, { payload }) => { state.csvUploadPct = payload; },
+    setZipPct: (state, { payload }) => {
+      state.zipUploadPct = payload;
+      state.processing   = payload === 100;
     },
     resetBulkUpload: (state) => {
-      state.uploading  = false;
-      state.uploadPct  = 0;
-      state.processing = false;
+      state.csvUploading  = false;
+      state.csvUploadPct  = 0;
+      state.preview       = null;
+      state.csvError      = null;
+      state.zipUploading  = false;
+      state.zipUploadPct  = 0;
+      state.processing    = false;
+      state.result        = null;
+      state.zipError      = null;
+    },
+    clearResult: (state) => {
       state.result     = null;
-      state.error      = null;
+      state.zipError   = null;
     },
   },
+
   extraReducers: (builder) => {
+    // ── Step 1: preview CSV ──
     builder
-      .addCase(importProductsCSV.pending, (state) => {
-        state.uploading  = true;
-        state.uploadPct  = 0;
-        state.processing = false;
-        state.result     = null;
-        state.error      = null;
+      .addCase(previewCSV.pending, (state) => {
+        state.csvUploading = true;
+        state.csvUploadPct = 0;
+        state.preview      = null;
+        state.csvError     = null;
       })
-      .addCase(importProductsCSV.fulfilled, (state, { payload }) => {
-        state.uploading  = false;
-        state.uploadPct  = 100;
-        state.processing = false;
-        state.result     = payload;
+      .addCase(previewCSV.fulfilled, (state, { payload }) => {
+        state.csvUploading = false;
+        state.csvUploadPct = 100;
+        state.preview      = payload;
       })
-      .addCase(importProductsCSV.rejected, (state, { payload }) => {
-        state.uploading  = false;
-        state.processing = false;
-        state.error      = payload;
+      .addCase(previewCSV.rejected, (state, { payload }) => {
+        state.csvUploading = false;
+        state.csvError     = payload;
+      });
+
+    // ── Step 2: import ZIP ──
+    builder
+      .addCase(importZip.pending, (state) => {
+        state.zipUploading = true;
+        state.zipUploadPct = 0;
+        state.processing   = false;
+        state.result       = null;
+        state.zipError     = null;
+      })
+      .addCase(importZip.fulfilled, (state, { payload }) => {
+        state.zipUploading = false;
+        state.zipUploadPct = 100;
+        state.processing   = false;
+        state.result       = payload;
+      })
+      .addCase(importZip.rejected, (state, { payload }) => {
+        state.zipUploading = false;
+        state.processing   = false;
+        state.zipError     = payload;
       });
   },
 });
 
-export const { setUploadPct, resetBulkUpload } = adminBulkUploadSlice.actions;
+export const { setCsvPct, setZipPct, resetBulkUpload, clearResult } = adminBulkUploadSlice.actions;
 export default adminBulkUploadSlice.reducer;
+// working code but upper side have bulk images upload 
+// // ADMIN_REDUX_MANAGEMENT/adminBulkUploadSlice.js
+// //
+// // Handles bulk product import via CSV
+// // Endpoint: POST /admin/products/import-csv
+// // Multer expects field name: "csvFile"
+
+// import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+// import axiosInstance from "../../../SERVICES/axiosInstance";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // THUNK — uploads CSV file and tracks progress via onUploadProgress
+// // ✅ FIX — timeout: 300000 (5 min) overrides any axiosInstance default timeout
+// // ─────────────────────────────────────────────────────────────────────────────
+// export const importProductsCSV = createAsyncThunk(
+//   "adminBulkUpload/importCSV",
+//   async ({ file, onProgress }, { rejectWithValue }) => {
+//     try {
+//       const fd = new FormData();
+//       fd.append("csvFile", file); // ✅ matches multer uploadCSVFile field name
+
+//       const response = await axiosInstance.post(
+//         "/admin/products/import-csv",
+//         fd,
+//         {
+//           headers: { "Content-Type": "multipart/form-data" },
+//           timeout: 300000, // ✅ 5 minutes — handles large CSV + Cloudinary image uploads
+//           onUploadProgress: (progressEvent) => {
+//             if (progressEvent.total && onProgress) {
+//               const pct = Math.round(
+//                 (progressEvent.loaded / progressEvent.total) * 100
+//               );
+//               onProgress(pct);
+//             }
+//           },
+//         }
+//       );
+
+//       if (response.data.success) return response.data;
+//       return rejectWithValue(response.data.message || "Import failed");
+//     } catch (err) {
+//       return rejectWithValue(err.response?.data?.message || err.message);
+//     }
+//   }
+// );
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // SLICE
+// // ─────────────────────────────────────────────────────────────────────────────
+// const adminBulkUploadSlice = createSlice({
+//   name: "adminBulkUpload",
+//   initialState: {
+//     uploading:  false,
+//     uploadPct:  0,
+//     processing: false,
+//     result:     null,
+//     error:      null,
+//   },
+//   reducers: {
+//     setUploadPct: (state, { payload }) => {
+//       state.uploadPct  = payload;
+//       state.processing = payload === 100;
+//     },
+//     resetBulkUpload: (state) => {
+//       state.uploading  = false;
+//       state.uploadPct  = 0;
+//       state.processing = false;
+//       state.result     = null;
+//       state.error      = null;
+//     },
+//   },
+//   extraReducers: (builder) => {
+//     builder
+//       .addCase(importProductsCSV.pending, (state) => {
+//         state.uploading  = true;
+//         state.uploadPct  = 0;
+//         state.processing = false;
+//         state.result     = null;
+//         state.error      = null;
+//       })
+//       .addCase(importProductsCSV.fulfilled, (state, { payload }) => {
+//         state.uploading  = false;
+//         state.uploadPct  = 100;
+//         state.processing = false;
+//         state.result     = payload;
+//       })
+//       .addCase(importProductsCSV.rejected, (state, { payload }) => {
+//         state.uploading  = false;
+//         state.processing = false;
+//         state.error      = payload;
+//       });
+//   },
+// });
+
+// export const { setUploadPct, resetBulkUpload } = adminBulkUploadSlice.actions;
+// export default adminBulkUploadSlice.reducer;
+// DOWN CODE IS ALSO WORK BUT TIME OUT ERROR OR UPLOAD FILE NOT THE CSV Type 
+// // ADMIN_REDUX_MANAGEMENT/adminBulkUploadSlice.js
+// //
+// // Handles bulk product import via CSV
+// // Endpoint: POST /admin/products/import-csv
+// // Multer expects field name: "file" (CSV)
+
+// import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+// import axiosInstance from "../../../SERVICES/axiosInstance";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // THUNK — uploads CSV file and tracks progress via onUploadProgress
+// // ─────────────────────────────────────────────────────────────────────────────
+// export const importProductsCSV = createAsyncThunk(
+//   "adminBulkUpload/importCSV",
+//   async ({ file, onProgress }, { rejectWithValue }) => {
+//     try {
+//       const fd = new FormData();
+//       fd.append("file", file);
+
+//       const response = await axiosInstance.post(
+//         "/admin/products/import-csv",
+//         fd,
+//         {
+//           headers: { "Content-Type": "multipart/form-data" },
+//           onUploadProgress: (progressEvent) => {
+//             if (progressEvent.total && onProgress) {
+//               const pct = Math.round(
+//                 (progressEvent.loaded / progressEvent.total) * 100
+//               );
+//               onProgress(pct);
+//             }
+//           },
+//         }
+//       );
+
+//       if (response.data.success) return response.data;
+//       return rejectWithValue(response.data.message || "Import failed");
+//     } catch (err) {
+//       return rejectWithValue(err.response?.data?.message || err.message);
+//     }
+//   }
+// );
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // SLICE
+// // ─────────────────────────────────────────────────────────────────────────────
+// const adminBulkUploadSlice = createSlice({
+//   name: "adminBulkUpload",
+//   initialState: {
+//     uploading:  false,
+//     uploadPct:  0,       // 0–100 file upload progress
+//     processing: false,   // true while backend processes rows after upload hits 100%
+//     result:     null,    // { totalRows, insertedProducts, failedCount, failed[] }
+//     error:      null,
+//   },
+//   reducers: {
+//     setUploadPct: (state, { payload }) => {
+//       state.uploadPct  = payload;
+//       state.processing = payload === 100;
+//     },
+//     resetBulkUpload: (state) => {
+//       state.uploading  = false;
+//       state.uploadPct  = 0;
+//       state.processing = false;
+//       state.result     = null;
+//       state.error      = null;
+//     },
+//   },
+//   extraReducers: (builder) => {
+//     builder
+//       .addCase(importProductsCSV.pending, (state) => {
+//         state.uploading  = true;
+//         state.uploadPct  = 0;
+//         state.processing = false;
+//         state.result     = null;
+//         state.error      = null;
+//       })
+//       .addCase(importProductsCSV.fulfilled, (state, { payload }) => {
+//         state.uploading  = false;
+//         state.uploadPct  = 100;
+//         state.processing = false;
+//         state.result     = payload;
+//       })
+//       .addCase(importProductsCSV.rejected, (state, { payload }) => {
+//         state.uploading  = false;
+//         state.processing = false;
+//         state.error      = payload;
+//       });
+//   },
+// });
+
+// export const { setUploadPct, resetBulkUpload } = adminBulkUploadSlice.actions;
+// export default adminBulkUploadSlice.reducer;
 
 // import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 // import axios from "axios";
