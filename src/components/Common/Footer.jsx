@@ -3,7 +3,7 @@ import {
   Facebook, Instagram, Youtube, ShieldCheck, Star, Award, 
   ChevronRight, Zap,Briefcase,Globe
 } from 'lucide-react';
-import logo from "../assets/logo.jpg"; 
+import logo from "../../assets/logo.jpg"; 
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();

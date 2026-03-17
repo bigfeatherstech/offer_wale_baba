@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+import Navbar from "./components/Common/Navbar";
+import Footer from "./components/Common/Footer";
 import Homepage from "./pages/Homepage";
 import CustomerCare from "./pages/CustomerCare";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
@@ -11,6 +11,8 @@ import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/RE
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AdminDashboard from "./components/ADMIN_SEGMENT/Admin_dashboard";
+import CatProducts from "./pages/Product_segment/CatPro_segment/CatProducts";
+import ProductDetail from "./pages/Product_segment/Productdetail";
 
 // Wrapper component to conditionally render Navbar based on route
 const AppContent = () => {
@@ -90,6 +92,8 @@ const AppContent = () => {
           path="/customer-care"
           element={<CustomerCare onOpenAuth={openAuthModal} />}
         />
+        <Route path="/category/:slug"  element={<CatProducts />} />
+        <Route path="/products/:slug"  element={<ProductDetail />} />
 
         {/* ADMIN_ROUTES */}
         <Route path="/admin" element={<AdminDashboard />} />

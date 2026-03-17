@@ -1,7 +1,7 @@
 // ADMIN_REDUX_MANAGEMENT/categoriesSlice.js
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosInstance from "../../../SERVICES/axiosInstance"; // adjust path
+import axiosInstance from "../../../SERVICES/axiosInstance";
 
 // ─────────────────────────────────────────────────────────────
 //  ASYNC THUNKS

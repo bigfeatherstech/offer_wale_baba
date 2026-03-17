@@ -1,6 +1,6 @@
 import React, { useCallback, memo, useState, useRef, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { forceLogout } from '../components/REDUX_FEATURES/REDUX_SLICES/authSlice';
+import { forceLogout } from '../REDUX_FEATURES/REDUX_SLICES/authSlice';
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
@@ -8,14 +8,14 @@ import {
     MapPin, LogOut, UserCircle, Settings
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import logo from "../assets/logo2.png";
-import homeIcon from "../assets/home (2).png";
-import justarrivedIcon from "../assets/just-arrived (1).png";
-import dealIcon from "../assets/deal.png";
-import saleIcon from "../assets/sale.png";
-import coupanIcon from "../assets/coupon.png";
-import customercareIcon from "../assets/service.png";
-import discountBannerIcon from "../assets/discount-voucher.png"
+import logo from "../../assets/logo2.png";
+import homeIcon from "../../assets/home (2).png";
+import justarrivedIcon from "../../assets/just-arrived (1).png";
+import dealIcon from "../../assets/deal.png";
+import saleIcon from "../../assets/sale.png";
+import coupanIcon from "../../assets/coupon.png";
+import customercareIcon from "../../assets/service.png";
+import discountBannerIcon from "../../assets/discount-voucher.png"
 
 // --- Sub-Components ---
 
@@ -574,6 +574,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 };
 
 export default memo(Navbar);
+
+
 // import React, { useCallback, memo, useState, useRef, useEffect } from 'react';
 // import { useDispatch } from 'react-redux';
 // import { forceLogout } from '../components/REDUX_FEATURES/REDUX_SLICES/authSlice';

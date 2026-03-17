@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import ProductDetailModal from '../Shared_components/ProductDetailModal';
-
+import CategoryModal from '../Shared_components/CategoryModal';
 const ProductsTab = ({
   products,
   categories,
@@ -19,12 +19,14 @@ const ProductsTab = ({
   // NEW: Add these props
   lowStockProducts = [],
   lowStockLoading = false,
+   onCategoryChange,
 }) => {
   const [searchTerm,     setSearchTerm]     = useState('');
   const [filterStatus,   setFilterStatus]   = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [detailProduct,  setDetailProduct]  = useState(null);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const getCategoryName = (productCategory) => {
     if (!productCategory) return 'Uncategorized';
@@ -41,7 +43,16 @@ const ProductsTab = ({
     if (typeof productCategory === 'object') return productCategory._id;
     return productCategory;
   };
-
+  const handleCategorySelect = (categoryId) => {
+    // Auto-select the newly created category in the dropdown
+    setFilterCategory(categoryId);
+    setShowCategoryModal(false);
+    
+    // Refresh categories list from parent if callback provided
+    if (onCategoryChange) {
+      onCategoryChange();
+    }
+  };
   const totalProducts    = products.length;
   const activeProducts   = products.filter((p) => p.status === 'active').length;
   const featuredProducts = products.filter((p) => p.isFeatured).length;
@@ -161,16 +172,35 @@ const ProductsTab = ({
               className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500" />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500">
+            className="px-4 cursor-pointer py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500">
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
             <option value="active">Active</option>
           </select>
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500">
-            <option value="all">All Categories</option>
-            {categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
-          </select>
+       {/* MODIFIED: Category dropdown with plus icon */}
+          <div className="relative">  {/* ✅ NEW wrapper div with relative positioning */}
+            <select 
+              value={filterCategory} 
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 pr-12 appearance-none cursor-pointer"  // ✅ ADDED pr-12 for icon space
+            >
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>{cat.name}</option>
+              ))}
+            </select>
+            
+            {/* ✅ NEW: Plus icon button */}
+            <button
+              onClick={() => setShowCategoryModal(true)}  // Opens modal
+              className="absolute cursor-pointer right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg transform hover:scale-105"
+              title="Add New Category"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
           {showLowStockOnly && (
             <button
               onClick={() => setShowLowStockOnly(false)}
@@ -377,6 +407,13 @@ const ProductsTab = ({
           getDiscountPercentage={getDiscountPercentage}
         />
       )}
+      {showCategoryModal && (
+      <CategoryModal
+        onSelect={handleCategorySelect}  // Called when category is created/selected
+        onClose={() => setShowCategoryModal(false)}  // Close modal
+      />
+    )}
+
     </div>
   );
 };

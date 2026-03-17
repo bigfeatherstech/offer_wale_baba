@@ -274,6 +274,7 @@ const AdminDashboard = () => {
             // Pass low stock products if you want to show them in a separate section
             lowStockProducts={lowStockProducts}
             lowStockLoading={lowStockLoading}
+            onCategoryChange={fetchCategories}
           />
         )}
         {activeTab === "analytics" && (

@@ -105,13 +105,6 @@ const BestSellers = () => {
                   </svg>
                 </button>
               </div>
-
-              {/* QUICK ADD ACTION */}
-              {/* <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
-                 <button className="w-full py-3 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-600 transition-colors shadow-2xl">
-                    Add To Bag
-                 </button>
-              </div> */}
             </div>
 
             {/* TEXT INFO: COMPACT & CLEAN */}
@@ -130,7 +123,7 @@ const BestSellers = () => {
                 <span className="text-[8px] text-zinc-300 line-through font-bold">₹{product.price * 2}</span>
               </div>
                  <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full  transition-transform duration-500 ease-out z-10">
-                 <button className="w-full py-3 bg-zinc-900 text-white text-[9px] font-black uppercase">
+                <button className="w-full cursor-pointer py-3 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-600 transition-colors shadow-2xl">
                     Add To Bag
                  </button>
               </div>
