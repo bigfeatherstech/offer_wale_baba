@@ -23,7 +23,7 @@ export const fetchProducts = createAsyncThunk(
           queryParams.append(key, value);
       });
       const url = `/products/all${queryParams.toString() ? `?${queryParams}` : ""}`;
-      console.log(`📦 fetchProducts → ${url}`);
+      // console.log(`📦 fetchProducts → ${url}`);
       const response = await axiosInstance.get(url);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch products");
@@ -42,7 +42,7 @@ export const fetchProductsByCategory = createAsyncThunk(
   "userProducts/fetchProductsByCategory",
   async ({ slug, page = 1, limit = 12 }, { rejectWithValue }) => {
     try {
-      console.log(`📂 fetchProductsByCategory → slug=${slug} page=${page} limit=${limit}`);
+      // console.log(`📂 fetchProductsByCategory → slug=${slug} page=${page} limit=${limit}`);
       const response = await axiosInstance.get(
         `/products/category/${slug}?page=${page}&limit=${limit}`
       );
@@ -65,7 +65,7 @@ export const fetchProductBySlug = createAsyncThunk(
   "userProducts/fetchProductBySlug",
   async (slug, { rejectWithValue }) => {
     try {
-      console.log(`🔍 fetchProductBySlug → ${slug}`);
+      // console.log(`🔍 fetchProductBySlug → ${slug}`);
       const response = await axiosInstance.get(`/products/${slug}`);
       if (!response.data.success)
         throw new Error(response.data.message || "Product not found");
@@ -84,7 +84,7 @@ export const searchProducts = createAsyncThunk(
   "userProducts/searchProducts",
   async ({ query, page = 1, limit = 12 }, { rejectWithValue }) => {
     try {
-      console.log(`🔎 searchProducts → q=${query} page=${page}`);
+      // console.log(`🔎 searchProducts → q=${query} page=${page}`);
       const response = await axiosInstance.get(
         `/products/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
       );
@@ -105,7 +105,7 @@ export const fetchFeaturedProducts = createAsyncThunk(
   "userProducts/fetchFeaturedProducts",
   async (limit = 12, { rejectWithValue }) => {
     try {
-      console.log(`⭐ fetchFeaturedProducts → limit=${limit}`);
+      // console.log(`⭐ fetchFeaturedProducts → limit=${limit}`);
       const response = await axiosInstance.get(`/products/featured?limit=${limit}`);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch featured products");
@@ -124,7 +124,7 @@ export const fetchRelatedProducts = createAsyncThunk(
   "userProducts/fetchRelatedProducts",
   async ({ slug, limit = 8 }, { rejectWithValue }) => {
     try {
-      console.log(`🔗 fetchRelatedProducts → slug=${slug} limit=${limit}`);
+      // console.log(`🔗 fetchRelatedProducts → slug=${slug} limit=${limit}`);
       const response = await axiosInstance.get(`/products/${slug}/related?limit=${limit}`);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch related products");
@@ -217,7 +217,7 @@ const userProductsSlice = createSlice({
       // ── fetchProductsByCategory ✅ now per-slug ───────────────────────────
       .addCase(fetchProductsByCategory.pending, (state, action) => {
         const slug = action.meta.arg.slug;
-        console.log(`⏳ [${slug}] loading...`);
+        // console.log(`⏳ [${slug}] loading...`);
         state.categoryLoading[slug] = true;
         state.categoryError[slug] = null;
       })
@@ -226,7 +226,7 @@ const userProductsSlice = createSlice({
         const total = action.payload.total ?? 0;
         const page = action.payload.page ?? 1;
         const limit = action.payload.limit ?? 12;
-        console.log(`✅ [${slug}] loaded ${action.payload.products?.length} products`);
+        // console.log(`✅ [${slug}] loaded ${action.payload.products?.length} products`);
         state.categoryLoading[slug] = false;
         state.categoryProducts[slug] = action.payload.products || [];
         state.categoryPagination[slug] = {

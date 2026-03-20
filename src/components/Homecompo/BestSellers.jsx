@@ -23,20 +23,20 @@ const BestSellers = () => {
   const hasError  = !!error.featured;
 
   useEffect(() => {
-    console.log('⭐ [BestSellers] Fetching featured products...');
+    // console.log('⭐ [BestSellers] Fetching featured products...');
     dispatch(fetchFeaturedProducts(8));
   }, [dispatch]);
 
-  // debug — remove once confirmed working
-  useEffect(() => {
-    console.log('📦 [BestSellers] state →', {
-      productsCount: products?.length,
-      isLoading,
-      hasError,
-      rawLoading: loading.featured,
-      rawError: error.featured,
-    });
-  }, [products, isLoading, hasError]);
+  // debug — remove once confirmed working..>>>>>>>>
+  // useEffect(() => {
+  //   console.log('📦 [BestSellers] state →', {
+  //     productsCount: products?.length,
+  //     isLoading,
+  //     hasError,
+  //     rawLoading: loading.featured,
+  //     rawError: error.featured,
+  //   });
+  // }, [products, isLoading, hasError]);
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {

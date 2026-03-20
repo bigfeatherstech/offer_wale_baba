@@ -102,7 +102,7 @@ const CatProducts = () => {
   useEffect(() => {
     if (!slug) return;
 
-    console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
+    // console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
 
     // clear previous category meta so stale name/image doesn't flash
     dispatch(clearCurrentCategory());
@@ -115,7 +115,7 @@ const CatProducts = () => {
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
 
     return () => {
-      console.log(`🧹 [CatProducts] cleanup for slug="${slug}"`);
+      // console.log(`🧹 [CatProducts] cleanup for slug="${slug}"`);
       dispatch(clearCurrentCategory());
       // NOTE: we intentionally do NOT clear categoryProducts[slug] here
       // so if the user navigates back, they see cached products instantly
@@ -124,13 +124,13 @@ const CatProducts = () => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handlePageChange = useCallback((newPage) => {
-    console.log(`📄 [CatProducts] slug="${slug}" → page=${newPage}`);
+    // console.log(`📄 [CatProducts] slug="${slug}" → page=${newPage}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
     dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 12 }));
   }, [slug, dispatch]);
 
   const handleRetry = () => {
-    console.log(`🔄 [CatProducts] Retrying slug="${slug}"`);
+    // console.log(`🔄 [CatProducts] Retrying slug="${slug}"`);
     dispatch(fetchCategoryBySlug(slug));
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   };

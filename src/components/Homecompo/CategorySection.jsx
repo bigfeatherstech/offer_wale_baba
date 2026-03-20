@@ -29,7 +29,7 @@ const CategorySection = ({ slug, title }) => {
 
   useEffect(() => {
     if (!products || products.length === 0) {
-      console.log(`🚀 [CategorySection] Fetching slug="${slug}"`);
+      // console.log(`🚀 [CategorySection] Fetching slug="${slug}"`);
       dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
     }
   }, [slug, dispatch]);
@@ -42,12 +42,12 @@ const CategorySection = ({ slug, title }) => {
   }, []);
 
   const handleRetry = () => {
-    console.log(`🔄 [CategorySection] Retrying slug="${slug}"`);
+    // console.log(`🔄 [CategorySection] Retrying slug="${slug}"`);
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
   };
 
   const handlePageChange = (newPage) => {
-    console.log(`📄 [CategorySection] slug="${slug}" → page=${newPage}`);
+    // console.log(`📄 [CategorySection] slug="${slug}" → page=${newPage}`);
     dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 10 }));
   };
 

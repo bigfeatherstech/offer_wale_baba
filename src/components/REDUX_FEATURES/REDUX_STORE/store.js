@@ -10,6 +10,8 @@ import adminBulkUploadReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/b
 // USER REDUCER 
 import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
 import userCategoriesReducer from "../REDUX_SLICES/userCategoriesSlice";
+import userWishlistReducer from '../REDUX_SLICES/userWishlistSlice';
+import userCartReducer from '../REDUX_SLICES/userCartSlice'; 
 
 const store = configureStore({
   reducer: {
@@ -22,9 +24,12 @@ const store = configureStore({
     adminBulkUpload: adminBulkUploadReducer,
 
 
+
     // USER REDUCER 
     userProducts: userProductsReducer,
     userCategories: userCategoriesReducer,
+    userWishlist: userWishlistReducer,
+    userCart: userCartReducer
   },
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });

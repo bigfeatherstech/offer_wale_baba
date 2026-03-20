@@ -13,19 +13,23 @@ import "react-toastify/dist/ReactToastify.css";
 import AdminDashboard from "./components/ADMIN_SEGMENT/Admin_dashboard";
 import CatProducts from "./pages/Product_segment/CatPro_segment/CatProducts";
 import ProductDetail from "./pages/Product_segment/Productdetail";
+import useWishlistInit from "./components/HOOKS/useWishlistInit";
+import useCartInit from "./components/HOOKS/useCartInit";
 
 // Wrapper component to conditionally render Navbar based on route
 const AppContent = () => {
   const dispatch = useDispatch();
   const { isLoggedIn, user } = useSelector((state) => state.auth);
   const location = useLocation();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-
+  
   // Check if current route is admin dashboard
   const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/admindash');
+  
+  useWishlistInit();//for whishlist
+  useCartInit();//for cart
 
   // ✅ On app load — if token exists in localStorage, fetch user profile silently
   useEffect(() => {

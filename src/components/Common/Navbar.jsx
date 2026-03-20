@@ -1,6 +1,11 @@
 import React, { useCallback, memo, useState, useRef, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { forceLogout } from '../REDUX_FEATURES/REDUX_SLICES/authSlice';
+import {
+  selectWishlistCount,
+  selectWishlistGuestItems,
+} from '../REDUX_FEATURES/REDUX_SLICES/userWishlistSlice';
+import { selectDisplayCartCount } from '../REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
@@ -190,7 +195,11 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
     const [isLogoHovered, setIsLogoHovered] = useState(false);
     const [burstIcons, setBurstIcons] = useState([]);
-
+    const wishlistCount  = useSelector(selectWishlistCount);
+    const guestItems     = useSelector(selectWishlistGuestItems);
+    const cartCount     = useSelector(selectDisplayCartCount);
+    // ✅ show DB count if logged in, localStorage count if guest
+  const displayCount = isLoggedIn ? wishlistCount : guestItems.length;
     const handleSearchChange = useCallback((e) => {
         setSearchQuery(e.target.value);
     }, [setSearchQuery]);
@@ -244,8 +253,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             label: isLoggedIn ? (user?.name || "Account") : "Account",
             onClick: handleAccountClick
         },
-        { icon: <Heart size={22} />, label: "Wishlist", count: 0, badge: "bg-red-600" },
-        { icon: <ShoppingCart size={22} />, label: "Cart", count: 0, badge: "bg-black" }
+        { icon: <Heart size={22} />, label: "Wishlist", count: displayCount, badge: "bg-red-600" },
+        { icon: <ShoppingCart size={22} />, label: "Cart", count: cartCount, badge: "bg-black" }
     ];
 
     // Updated bottomNavLinks with PNG images and individual animations

@@ -15,7 +15,7 @@ export const fetchAllCategories = createAsyncThunk(
   "userCategories/fetchAllCategories",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("📚 Fetching all categories");
+      // console.log("📚 Fetching all categories");
       const response = await axiosInstance.get("/categories/categories");
 
       if (!response.data.success) {
@@ -41,7 +41,7 @@ export const fetchCategoryById = createAsyncThunk(
   "userCategories/fetchCategoryById",
   async (id, { rejectWithValue }) => {
     try {
-      console.log(`🔍 Fetching category with ID: ${id}`);
+      // console.log(`🔍 Fetching category with ID: ${id}`);
       const response = await axiosInstance.get(`/categories/categories/${id}`);
 
       if (!response.data.success) {
@@ -67,7 +67,7 @@ export const fetchCategoryBySlug = createAsyncThunk(
   "userCategories/fetchBySlug",
   async (slug, { rejectWithValue }) => {
     try {
-      console.log(`📁 Fetching category by slug: ${slug}`);
+      // console.log(`📁 Fetching category by slug: ${slug}`);
       // /products/category/:slug returns { success, category, products, ... }
       const response = await axiosInstance.get(
         `/products/category/${slug}?page=1&limit=1`

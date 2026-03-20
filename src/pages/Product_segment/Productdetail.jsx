@@ -33,9 +33,9 @@ const fmt = (n) => {
 };
 
 const logError = (ctx, err, info = {}) => {
-  console.group(`🔴 [ProductDetail] ${ctx}`);
+  // console.group(`🔴 [ProductDetail] ${ctx}`);
   console.error(err);
-  console.log(info);
+  // console.log(info);
   console.groupEnd();
 };
 
@@ -149,7 +149,7 @@ const ProductDetail = () => {
   // ── fetch on slug change ────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
-    console.log(`🔍 [ProductDetail] mounting slug="${slug}"`);
+    // console.log(`🔍 [ProductDetail] mounting slug="${slug}"`);
     window.scrollTo({ top: 0, behavior: "smooth" });
     dispatch(clearCurrentProduct());
     dispatch(clearRelatedProducts());
@@ -160,11 +160,11 @@ const ProductDetail = () => {
     dispatch(fetchProductBySlug(slug))
       .unwrap()
       .then((d) => {
-           console.log("RAW API RESPONSE  PRODUCT PAGE....??:", JSON.stringify(d, null, 2))
+          //  console.log("RAW API RESPONSE  PRODUCT PAGE....??:", JSON.stringify(d, null, 2))
         // fetch related after product is confirmed
         dispatch(fetchRelatedProducts({ slug, limit: 4 }))
           .unwrap()
-          .then((r) => console.log(`✅ related: ${r.related?.length}`))
+          // .then((r) => console.log(`✅ related: ${r.related?.length}`))
           .catch((e) => logError("fetchRelatedProducts", e, { slug }));
       })
       .catch((e) => logError("fetchProductBySlug", e, { slug }));

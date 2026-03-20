@@ -19,7 +19,7 @@ const Homepage = () => {
   const error      = useSelector(selectCategoriesError);
 
   useEffect(() => {
-    console.log('🏠 [Homepage] Fetching all categories...');
+    // console.log('🏠 [Homepage] Fetching all categories...');
     dispatch(fetchAllCategories());
   }, [dispatch]);
 
