@@ -22,6 +22,8 @@ import {
   selectCartItemBySlug,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
+import LazyImage from "./LazyImage"; // RIGHT PATH
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const formatPrice = (amount) => {
   if (amount == null) return "—";
@@ -44,7 +46,6 @@ const ProductCard = ({ product, index }) => {
   const wishlisted = useSelector(selectIsWishlisted(product?.slug));
 
   // ✅ per-card local loading — NOT global Redux loading
-  // This prevents ALL cards spinning when ONE card is loading
   const [localLoading, setLocalLoading] = useState({
     add: false,
     update: false,
@@ -57,24 +58,24 @@ const ProductCard = ({ product, index }) => {
 
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
 
-  // ── Cart state from Redux — reads by slug ─────────────────────────────────
-  const cartItem = useSelector(selectCartItemBySlug(product?.slug));
-  const isInCart = !!cartItem;
+  // ── Cart state from Redux ─────────────────────────────────────────────────
+  const cartItem   = useSelector(selectCartItemBySlug(product?.slug));
+  const isInCart   = !!cartItem;
   const currentQty = cartItem?.quantity ?? 0;
 
   // ── Product derived values ────────────────────────────────────────────────
-  const variant = product?.variants?.[0] ?? {};
-  const title = product?.title || product?.name || "Untitled product";
-  const salePrice = variant.price?.sale ?? variant.price?.base ?? null;
-  const basePrice = variant.price?.base ?? null;
+  const variant     = product?.variants?.[0] ?? {};
+  const title       = product?.title || product?.name || "Untitled product";
+  const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
+  const basePrice   = variant.price?.base ?? null;
   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
   const discountPct = variant.discountPercentage ??
     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
-  const imgUrl = variant.images?.[0]?.url || null;
-  const maxStock = variant.inventory?.trackInventory
+  const imgUrl      = variant.images?.[0]?.url || null;
+  const maxStock    = variant.inventory?.trackInventory
     ? (variant.inventory?.quantity ?? 0)
     : Infinity;
-  const inStock = maxStock > 0;
+  const inStock      = maxStock > 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -121,11 +122,9 @@ const ProductCard = ({ product, index }) => {
     }
   };
 
-  // ── Add to cart (first time only) ────────────────────────────────────────
+  // ── Add to cart ───────────────────────────────────────────────────────────
   const handleAddToCart = async (e) => {
     e.stopPropagation();
-
-    // ✅ Hard guards — no double dispatch ever
     if (isInCart) return;
     if (isProcessing) return;
     if (!inStock) return;
@@ -142,24 +141,23 @@ const ProductCard = ({ product, index }) => {
           variantId: variant?._id?.toString(),
           quantity: 1,
         })).unwrap();
-        // toast.success("Added to cart 🛒");
         toast.success(
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <ShoppingCart size={18} />
+            {/* <ShoppingCart size={18} /> */}
             <span>Added to cart</span>
           </div>
         );
         console.log(`✅ [ProductCard] slug="${product.slug}" added to cart`);
       } else {
         dispatch(addGuestCartItem({
+            productId: product._id,   //backend expect this when guest card merged.
           productSlug: product.slug,
           variantId: variant?._id?.toString() || "",
           quantity: 1,
         }));
-        // toast.success("Added to cart 🛒");
         toast.success(
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <ShoppingCart size={18} />
+            {/* <ShoppingCart size={18} /> */}
             <span>Added to cart</span>
           </div>
         );
@@ -273,33 +271,31 @@ const ProductCard = ({ product, index }) => {
       className="group flex flex-col cursor-pointer font-sans"
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={handleCardClick}
-
     >
       {/* ── IMAGE ── */}
-      <div className="relative aspect-[1/1] overflow-hidden bg-zinc-50 rounded-sm mb-4">
-        {imgUrl ? (
-          <img
-            src={imgUrl}
-            alt={title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            loading="lazy"
-            onError={(e) => {
-              e.target.style.display = "none";
-              logError("img load", new Error("Image failed"), {
-                slug: product?.slug,
-                url: imgUrl,
-              });
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-300 text-[10px] uppercase bg-zinc-100">
-            No Image
-          </div>
-        )}
+      {/* 
+        CHANGED: replaced raw <img> with <LazyImage>
+        - aspect-ratio='1/1' reserves correct space → zero layout shift
+        - blur-up transition on load
+        - IntersectionObserver + loading="lazy" belt-and-suspenders
+        - decoding="async" off main thread
+        - onError handled inside LazyImage, shows "No Image" fallback
+        - wrapperClass carries the rounded-sm + mb-4 that were on the wrapper div
+        - className carries the hover scale transition
+      */}
+      <div className="relative mb-4">
+        <LazyImage
+          src={imgUrl}
+          alt={title}
+          aspectRatio="1/1"
+          objectFit="cover"
+          wrapperClass="rounded-sm"
+          className="transition-transform duration-700 group-hover:scale-105"
+        />
 
         {/* Out of stock overlay */}
         {!inStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-sm">
             <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1">
               Out of Stock
             </span>
@@ -316,14 +312,15 @@ const ProductCard = ({ product, index }) => {
         )}
 
         {/* Wishlist + View buttons */}
-        <div className="absolute  top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="absolute top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
           <button
             onClick={handleWishlist}
             disabled={localLoading.wishlist}
-            className={`w-8 h-8 rounded-full cursor-pointer flex items-center justify-center border transition-colors ${wishlisted
+            className={`w-8 h-8 rounded-full cursor-pointer flex items-center justify-center border transition-colors ${
+              wishlisted
                 ? "bg-red-500 border-red-500 text-white"
                 : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-900 hover:text-white"
-              }`}
+            }`}
           >
             {localLoading.wishlist
               ? <Loader2 size={12} className="animate-spin" />
@@ -391,10 +388,11 @@ const ProductCard = ({ product, index }) => {
           <button
             onClick={handleAddToCart}
             disabled={localLoading.add}
-            className={`w-full py-3 text-[9px] cursor-pointer font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${localLoading.add
+            className={`w-full py-3 text-[9px] cursor-pointer font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+              localLoading.add
                 ? "bg-zinc-400 text-white cursor-wait"
                 : "bg-zinc-900 text-white hover:bg-yellow-600"
-              }`}
+            }`}
           >
             {localLoading.add ? (
               <>
@@ -415,10 +413,11 @@ const ProductCard = ({ product, index }) => {
               <button
                 onClick={handleDecrement}
                 disabled={isProcessing}
-                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isProcessing
+                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${
+                  isProcessing
                     ? "bg-zinc-100 text-zinc-300 cursor-wait"
                     : "bg-zinc-100 text-zinc-700 hover:bg-red-500 hover:text-white"
-                  }`}
+                }`}
               >
                 {localLoading.remove
                   ? <Loader2 size={12} className="animate-spin" />
@@ -438,12 +437,13 @@ const ProductCard = ({ product, index }) => {
               <button
                 onClick={handleIncrement}
                 disabled={isAtMaxStock || isProcessing}
-                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isAtMaxStock
+                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${
+                  isAtMaxStock
                     ? "bg-zinc-100 text-zinc-300 cursor-not-allowed"
                     : isProcessing
                       ? "bg-zinc-100 text-zinc-300 cursor-wait"
                       : "bg-zinc-900 text-white hover:bg-yellow-600"
-                  }`}
+                }`}
               >
                 {localLoading.add
                   ? <Loader2 size={12} className="animate-spin" />
@@ -467,7 +467,478 @@ const ProductCard = ({ product, index }) => {
 
 export default ProductCard;
 
-// code working but upper code have some error hadnling for other things>>>>>>>>>>>
+
+// code WORKING BUT UPPER CODE HAVE SOME MORE OPTIMIZATION PLUS NEW THINGS>>>>>>>>>>>>>>>>
+// import React, { useState } from "react";
+// import { useNavigate } from "react-router-dom";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { Heart, Eye, Minus, Plus, Loader2, ShoppingCart } from "lucide-react";
+
+// import {
+//   addToWishlist,
+//   removeFromWishlist,
+//   addGuestItem,
+//   removeGuestItem,
+//   selectIsWishlisted,
+// } from "../../components/REDUX_FEATURES/REDUX_SLICES/userWishlistSlice";
+
+// import {
+//   addToCart,
+//   updateCartItem,
+//   removeCartItem,
+//   addGuestCartItem,
+//   updateGuestCartItem,
+//   removeGuestCartItem,
+//   selectCartItemBySlug,
+// } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
+
+// // ── Helpers ───────────────────────────────────────────────────────────────────
+// const formatPrice = (amount) => {
+//   if (amount == null) return "—";
+//   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(amount);
+// };
+
+// const logError = (context, error, info = {}) => {
+//   console.group(`🔴 [ProductCard] ERROR in ${context}`);
+//   console.error("Error:", error);
+//   console.log("Info:", info);
+//   console.groupEnd();
+// };
+
+// // ── Component ─────────────────────────────────────────────────────────────────
+// const ProductCard = ({ product, index }) => {
+//   const navigate = useNavigate();
+//   const dispatch = useDispatch();
+
+//   const { isLoggedIn } = useSelector((state) => state.auth);
+//   const wishlisted = useSelector(selectIsWishlisted(product?.slug));
+
+//   // ✅ per-card local loading — NOT global Redux loading
+//   // This prevents ALL cards spinning when ONE card is loading
+//   const [localLoading, setLocalLoading] = useState({
+//     add: false,
+//     update: false,
+//     remove: false,
+//     wishlist: false,
+//   });
+
+//   const setLoading = (key, val) =>
+//     setLocalLoading((prev) => ({ ...prev, [key]: val }));
+
+//   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
+
+//   // ── Cart state from Redux — reads by slug ─────────────────────────────────
+//   const cartItem = useSelector(selectCartItemBySlug(product?.slug));
+//   const isInCart = !!cartItem;
+//   const currentQty = cartItem?.quantity ?? 0;
+
+//   // ── Product derived values ────────────────────────────────────────────────
+//   const variant = product?.variants?.[0] ?? {};
+//   const title = product?.title || product?.name || "Untitled product";
+//   const salePrice = variant.price?.sale ?? variant.price?.base ?? null;
+//   const basePrice = variant.price?.base ?? null;
+//   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
+//   const discountPct = variant.discountPercentage ??
+//     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
+//   const imgUrl = variant.images?.[0]?.url || null;
+//   const maxStock = variant.inventory?.trackInventory
+//     ? (variant.inventory?.quantity ?? 0)
+//     : Infinity;
+//   const inStock = maxStock > 0;
+//   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
+
+//   // ── Navigation ────────────────────────────────────────────────────────────
+//   const handleCardClick = () => {
+//     if (!product?.slug) {
+//       logError("handleCardClick", new Error("Missing slug"), { product });
+//       return;
+//     }
+//     navigate(`/products/${product.slug}`);
+//   };
+
+//   // ── Wishlist ──────────────────────────────────────────────────────────────
+//   const handleWishlist = async (e) => {
+//     e.stopPropagation();
+//     if (!product?.slug) return;
+//     if (localLoading.wishlist) return;
+
+//     setLoading("wishlist", true);
+//     try {
+//       if (isLoggedIn) {
+//         if (wishlisted) {
+//           await dispatch(removeFromWishlist({ productSlug: product.slug })).unwrap();
+//           toast.success("Removed from wishlist", { icon: "💔" });
+//           console.log(`✅ [ProductCard] slug="${product.slug}" removed from wishlist`);
+//         } else {
+//           await dispatch(addToWishlist({ productSlug: product.slug })).unwrap();
+//           toast.success("Added to wishlist", { icon: "❤️" });
+//           console.log(`✅ [ProductCard] slug="${product.slug}" added to wishlist`);
+//         }
+//       } else {
+//         if (wishlisted) {
+//           dispatch(removeGuestItem(product.slug));
+//           toast.success("Removed from wishlist", { icon: "💔" });
+//         } else {
+//           dispatch(addGuestItem(product.slug));
+//           toast.success("Saved to wishlist", { icon: "❤️" });
+//         }
+//       }
+//     } catch (error) {
+//       logError("handleWishlist", error, { slug: product.slug });
+//       toast.error(error?.message || "Wishlist action failed");
+//     } finally {
+//       setLoading("wishlist", false);
+//     }
+//   };
+
+//   // ── Add to cart (first time only) ────────────────────────────────────────
+//   const handleAddToCart = async (e) => {
+//     e.stopPropagation();
+
+//     // ✅ Hard guards — no double dispatch ever
+//     if (isInCart) return;
+//     if (isProcessing) return;
+//     if (!inStock) return;
+//     if (!product?.slug) {
+//       logError("handleAddToCart", new Error("Missing slug"), { product });
+//       return;
+//     }
+
+//     setLoading("add", true);
+//     try {
+//       if (isLoggedIn) {
+//         await dispatch(addToCart({
+//           productSlug: product.slug,
+//           variantId: variant?._id?.toString(),
+//           quantity: 1,
+//         })).unwrap();
+//         // toast.success("Added to cart 🛒");
+//         toast.success(
+//           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+//             <ShoppingCart size={18} />
+//             <span>Added to cart</span>
+//           </div>
+//         );
+//         console.log(`✅ [ProductCard] slug="${product.slug}" added to cart`);
+//       } else {
+//         dispatch(addGuestCartItem({
+//           productSlug: product.slug,
+//           variantId: variant?._id?.toString() || "",
+//           quantity: 1,
+//         }));
+//         // toast.success("Added to cart 🛒");
+//         toast.success(
+//           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+//             <ShoppingCart size={18} />
+//             <span>Added to cart</span>
+//           </div>
+//         );
+//         console.log(`✅ [ProductCard] guest slug="${product.slug}" added`);
+//       }
+//     } catch (error) {
+//       logError("handleAddToCart", error, { slug: product.slug });
+//       toast.error(error?.message || "Failed to add to cart");
+//     } finally {
+//       setLoading("add", false);
+//     }
+//   };
+
+//   // ── Increment ─────────────────────────────────────────────────────────────
+//   const handleIncrement = async (e) => {
+//     e.stopPropagation();
+//     if (isAtMaxStock) {
+//       toast.warning(`Max stock reached (${maxStock})`);
+//       return;
+//     }
+//     if (isProcessing) return;
+
+//     const newQty = currentQty + 1;
+//     setLoading("update", true);
+//     try {
+//       if (isLoggedIn) {
+//         await dispatch(updateCartItem({
+//           productId: String(cartItem?.productId?._id || cartItem?.productId),
+//           variantId: String(cartItem?.variantId),
+//           quantity: newQty,
+//           productSlug: product.slug,
+//         })).unwrap();
+//         console.log(`✅ [ProductCard] slug="${product.slug}" qty → ${newQty}`);
+//       } else {
+//         dispatch(updateGuestCartItem({
+//           productSlug: product.slug,
+//           variantId: variant?._id?.toString() || "",
+//           quantity: newQty,
+//         }));
+//       }
+//     } catch (error) {
+//       logError("handleIncrement", error, { slug: product.slug, newQty });
+//       toast.error(error?.message || "Failed to update quantity");
+//     } finally {
+//       setLoading("update", false);
+//     }
+//   };
+
+//   // ── Decrement ─────────────────────────────────────────────────────────────
+//   const handleDecrement = async (e) => {
+//     e.stopPropagation();
+//     if (isProcessing) return;
+
+//     const newQty = currentQty - 1;
+
+//     if (isLoggedIn) {
+//       if (newQty <= 0) {
+//         setLoading("remove", true);
+//         try {
+//           await dispatch(removeCartItem({
+//             productId: String(cartItem?.productId?._id || cartItem?.productId),
+//             variantId: String(cartItem?.variantId),
+//             productSlug: product.slug,
+//           })).unwrap();
+//           toast.info("Removed from cart");
+//           console.log(`✅ [ProductCard] slug="${product.slug}" removed from cart`);
+//         } catch (error) {
+//           logError("handleDecrement → remove", error, { slug: product.slug });
+//           toast.error(error?.message || "Failed to remove from cart");
+//         } finally {
+//           setLoading("remove", false);
+//         }
+//       } else {
+//         setLoading("update", true);
+//         try {
+//           await dispatch(updateCartItem({
+//             productId: String(cartItem?.productId?._id || cartItem?.productId),
+//             variantId: String(cartItem?.variantId),
+//             quantity: newQty,
+//             productSlug: product.slug,
+//           })).unwrap();
+//           console.log(`✅ [ProductCard] slug="${product.slug}" qty → ${newQty}`);
+//         } catch (error) {
+//           logError("handleDecrement → update", error, { slug: product.slug, newQty });
+//           toast.error(error?.message || "Failed to update quantity");
+//         } finally {
+//           setLoading("update", false);
+//         }
+//       }
+//     } else {
+//       // Guest
+//       if (newQty <= 0) {
+//         dispatch(removeGuestCartItem({
+//           productSlug: product.slug,
+//           variantId: variant?._id?.toString() || "",
+//         }));
+//         toast.info("Removed from cart");
+//       } else {
+//         dispatch(updateGuestCartItem({
+//           productSlug: product.slug,
+//           variantId: variant?._id?.toString() || "",
+//           quantity: newQty,
+//         }));
+//       }
+//     }
+//   };
+
+//   // ── Render ────────────────────────────────────────────────────────────────
+//   return (
+//     <div
+//       className="group flex flex-col cursor-pointer font-sans"
+//       style={{ animationDelay: `${index * 50}ms` }}
+//       onClick={handleCardClick}
+
+//     >
+//       {/* ── IMAGE ── */}
+//       <div className="relative aspect-[1/1] overflow-hidden bg-zinc-50 rounded-sm mb-4">
+//         {imgUrl ? (
+//           <img
+//             src={imgUrl}
+//             alt={title}
+//             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+//             loading="lazy"
+//             onError={(e) => {
+//               e.target.style.display = "none";
+//               logError("img load", new Error("Image failed"), {
+//                 slug: product?.slug,
+//                 url: imgUrl,
+//               });
+//             }}
+//           />
+//         ) : (
+//           <div className="w-full h-full flex items-center justify-center text-zinc-300 text-[10px] uppercase bg-zinc-100">
+//             No Image
+//           </div>
+//         )}
+
+//         {/* Out of stock overlay */}
+//         {!inStock && (
+//           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+//             <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1">
+//               Out of Stock
+//             </span>
+//           </div>
+//         )}
+
+//         {/* Discount badge */}
+//         {discountPct && inStock && (
+//           <div className="absolute top-3 left-3">
+//             <span className="text-[9px] font-black bg-yellow-500 text-white px-2 py-0.5 rounded">
+//               {discountPct}%
+//             </span>
+//           </div>
+//         )}
+
+//         {/* Wishlist + View buttons */}
+//         <div className="absolute  top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+//           <button
+//             onClick={handleWishlist}
+//             disabled={localLoading.wishlist}
+//             className={`w-8 h-8 rounded-full cursor-pointer flex items-center justify-center border transition-colors ${wishlisted
+//                 ? "bg-red-500 border-red-500 text-white"
+//                 : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-900 hover:text-white"
+//               }`}
+//           >
+//             {localLoading.wishlist
+//               ? <Loader2 size={12} className="animate-spin" />
+//               : <Heart size={14} className={wishlisted ? "fill-current" : ""} />
+//             }
+//           </button>
+//           <button
+//             onClick={(e) => {
+//               e.stopPropagation();
+//               if (product?.slug) navigate(`/products/${product.slug}`);
+//             }}
+//             className="w-8 h-8 cursor-pointer bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
+//           >
+//             <Eye size={14} />
+//           </button>
+//         </div>
+//       </div>
+
+//       {/* ── TEXT INFO ── */}
+//       <div className="space-y-1">
+//         <div className="flex justify-between items-center">
+//           <span className="text-[10px] font-bold uppercase text-zinc-400">
+//             {typeof product?.category === "object"
+//               ? product.category?.name
+//               : product?.category || "General"}
+//           </span>
+//           {discountPct && inStock && (
+//             <span className="text-[8px] font-bold text-yellow-600 uppercase">
+//               {discountPct}% off
+//             </span>
+//           )}
+//         </div>
+
+//         <h3 className="text-[11px] md:text-xs font-lato uppercase tracking-wider text-zinc-900 group-hover:text-yellow-600 transition-colors truncate">
+//           {title}
+//         </h3>
+
+//         <div className="flex items-center gap-2 pt-0.5 pb-2">
+//           <span className="text-sm md:text-base font-bold text-zinc-900">
+//             ₹{formatPrice(salePrice)}
+//           </span>
+//           {hasDiscount && (
+//             <span className="text-[10px] text-zinc-300 line-through font-bold">
+//               ₹{formatPrice(basePrice)}
+//             </span>
+//           )}
+//         </div>
+//       </div>
+
+//       {/* ── CART BUTTON AREA ── */}
+//       <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
+
+//         {/* Case 1 — Out of stock */}
+//         {!inStock && (
+//           <button
+//             disabled
+//             className="w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] bg-zinc-200 text-zinc-400 cursor-not-allowed"
+//           >
+//             Out of Stock
+//           </button>
+//         )}
+
+//         {/* Case 2 — In stock, NOT in cart */}
+//         {inStock && !isInCart && (
+//           <button
+//             onClick={handleAddToCart}
+//             disabled={localLoading.add}
+//             className={`w-full py-3 text-[9px] cursor-pointer font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${localLoading.add
+//                 ? "bg-zinc-400 text-white cursor-wait"
+//                 : "bg-zinc-900 text-white hover:bg-yellow-600"
+//               }`}
+//           >
+//             {localLoading.add ? (
+//               <>
+//                 <Loader2 size={12} className="animate-spin" />
+//                 Adding...
+//               </>
+//             ) : (
+//               "Add To Bag"
+//             )}
+//           </button>
+//         )}
+
+//         {/* Case 3 — In cart → qty controls */}
+//         {inStock && isInCart && (
+//           <>
+//             <div className="flex items-center w-full border border-zinc-200 overflow-hidden">
+//               {/* Decrement / Remove */}
+//               <button
+//                 onClick={handleDecrement}
+//                 disabled={isProcessing}
+//                 className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isProcessing
+//                     ? "bg-zinc-100 text-zinc-300 cursor-wait"
+//                     : "bg-zinc-100 text-zinc-700 hover:bg-red-500 hover:text-white"
+//                   }`}
+//               >
+//                 {localLoading.remove
+//                   ? <Loader2 size={12} className="animate-spin" />
+//                   : <Minus size={12} />
+//                 }
+//               </button>
+
+//               {/* Current qty */}
+//               <div className="flex-1 text-center text-[11px] font-black text-zinc-900 bg-white py-2 select-none">
+//                 {localLoading.update
+//                   ? <Loader2 size={12} className="animate-spin mx-auto" />
+//                   : currentQty
+//                 }
+//               </div>
+
+//               {/* Increment */}
+//               <button
+//                 onClick={handleIncrement}
+//                 disabled={isAtMaxStock || isProcessing}
+//                 className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isAtMaxStock
+//                     ? "bg-zinc-100 text-zinc-300 cursor-not-allowed"
+//                     : isProcessing
+//                       ? "bg-zinc-100 text-zinc-300 cursor-wait"
+//                       : "bg-zinc-900 text-white hover:bg-yellow-600"
+//                   }`}
+//               >
+//                 {localLoading.add
+//                   ? <Loader2 size={12} className="animate-spin" />
+//                   : <Plus size={12} />
+//                 }
+//               </button>
+//             </div>
+
+//             {/* Max stock warning */}
+//             {isAtMaxStock && (
+//               <p className="text-[8px] text-center text-orange-500 font-bold mt-1 uppercase tracking-wider">
+//                 Max stock reached
+//               </p>
+//             )}
+//           </>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default ProductCard;
+
+// code working but upper code have some error handling for other things>>>>>>>>>>>
 // import React, { useState } from "react";
 // import { useNavigate } from "react-router-dom";
 // import { ShoppingCart, Heart, Eye, Star } from "lucide-react";

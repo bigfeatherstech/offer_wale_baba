@@ -1,16 +1,106 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { useVirtualizer } from '@tanstack/react-virtual';
+
 import {
   fetchFeaturedProducts,
   selectFeaturedProducts,
   selectProductsLoading,
   selectProductsError,
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
-import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
-// import ProductCard from '../../pages/Product_segment/ProductCard';
-import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
 
+import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
+import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
+import useInViewFetch from '../../components/HOOKS/useInViewFetch';
+
+// ── FIXED: Column count logic for SOLO mobile view ──────
+const getColumnCount = () => {
+  const w = window.innerWidth;
+  if (w >= 1024) return 3; // lg:grid-cols-3
+  return 1;                // grid-cols-1 (Mobile Solo)
+};
+
+// ── VirtualizedProductGrid ────────────────────────────────────────────────────
+const VirtualizedProductGrid = ({ products }) => {
+  const parentRef = useRef(null);
+  const [cols, setCols] = useState(getColumnCount);
+
+  useEffect(() => {
+    const onResize = () => setCols(getColumnCount());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < products.length; i += cols) {
+      result.push(products.slice(i, i + cols));
+    }
+    return result;
+  }, [products, cols]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    // Estimate size needs to be taller for solo mobile cards
+    estimateSize: () => (window.innerWidth < 1024 ? 500 : 420),
+    overscan: 2,
+  });
+
+  return (
+    <div ref={parentRef} style={{ width: '100%' }}>
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const rowItems = rows[virtualRow.index];
+          if (!rowItems) return null;
+
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              {/* FIXED: grid-cols-1 for mobile solo, lg:grid-cols-4 for desktop */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-10 md:gap-x-8 pb- md:pb-6">
+                {rowItems.map((product, i) => {
+                  const absoluteIndex = virtualRow.index * cols + i;
+                  return (
+                    <div
+                      key={product._id || absoluteIndex}
+                      className="animate-slide-up"
+                      style={{
+                        animationDelay: `${(absoluteIndex % cols) * 80}ms`,
+                        animationFillMode: 'both',
+                      }}
+                    >
+                      <ProductCard product={product} index={absoluteIndex} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── BestSellers ───────────────────────────────────────────────────────────────
 const BestSellers = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -19,27 +109,21 @@ const BestSellers = () => {
   const loading  = useSelector(selectProductsLoading);
   const error    = useSelector(selectProductsError);
 
-  // ✅ show skeleton if actively loading OR if no data yet and no error
-  const isLoading = loading.featured || (!products?.length && !error.featured);
-  const hasError  = !!error.featured;
+  const hasProducts = products?.length > 0;
+  const isLoading   = loading.featured;
+  const hasError    = !!error.featured;
 
-  useEffect(() => {
-    // console.log('⭐ [BestSellers] Fetching featured products...');
+  const triggerFetch = useCallback(() => {
     dispatch(fetchFeaturedProducts(8));
   }, [dispatch]);
 
-  // debug — remove once confirmed working..>>>>>>>>
-  // useEffect(() => {
-  //   console.log('📦 [BestSellers] state →', {
-  //     productsCount: products?.length,
-  //     isLoading,
-  //     hasError,
-  //     rawLoading: loading.featured,
-  //     rawError: error.featured,
-  //   });
-  // }, [products, isLoading, hasError]);
+  const observerDisabled = hasProducts || hasError;
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  const { ref: sentinelRef } = useInViewFetch(triggerFetch, {
+    rootMargin: '300px',
+    disabled: observerDisabled,
+  });
+
   if (isLoading) {
     return (
       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
@@ -50,16 +134,15 @@ const BestSellers = () => {
           </div>
           <div className="hidden sm:block h-10 w-28 bg-zinc-100 animate-pulse rounded" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+        {/* Skeleton matches solo mobile / 4 desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
           {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       </section>
     );
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
   if (hasError) {
-    console.error('❌ [BestSellers] Failed:', error.featured?.message);
     return (
       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
@@ -71,10 +154,7 @@ const BestSellers = () => {
           <p className="text-zinc-500 mb-2">Failed to load featured products</p>
           <p className="text-zinc-400 text-xs mb-6">{error.featured?.message}</p>
           <button
-            onClick={() => {
-              console.log('🔄 [BestSellers] Retrying...');
-              dispatch(fetchFeaturedProducts(8));
-            }}
+            onClick={() => dispatch(fetchFeaturedProducts(8))}
             className="bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-yellow-600 transition-all"
           >
             Try Again
@@ -84,24 +164,28 @@ const BestSellers = () => {
     );
   }
 
-  // ── Empty ────────────────────────────────────────────────────────────────
-  if (!products || products.length === 0) {
-    console.warn('⚠️ [BestSellers] No featured products returned from API');
-    return null;
+  if (!hasProducts) {
+    return (
+      <div
+        ref={sentinelRef}
+        className="w-full"
+        style={{ minHeight: '600px' }}
+        aria-hidden="true"
+      />
+    );
   }
 
-  // ── Main Render ──────────────────────────────────────────────────────────
   return (
     <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+      <div ref={sentinelRef} aria-hidden="true" />
 
-      {/* HEADER */}
       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
         <div className="space-y-1">
           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
             Just&nbsp;&nbsp;<span className="text-yellow-600 font-outfit">Arrived</span>
           </h2>
           <div className="flex items-center gap-2">
-            <span className="w-4 h-[1px] bg-yellow-600"></span>
+            <span className="w-4 h-[1px] bg-yellow-600" />
             <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-yellow-600 underline underline-offset-4">
               Community Favorites
             </p>
@@ -115,20 +199,8 @@ const BestSellers = () => {
         </button>
       </div>
 
-      {/* PRODUCT GRID */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
-        {products.map((product, index) => (
-          <div
-            key={product._id || index}
-            className="animate-slide-up"
-            style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
-          >
-            <ProductCard product={product} index={index} />
-          </div>
-        ))}
-      </div>
+      <VirtualizedProductGrid products={products} />
 
-      {/* MOBILE VIEW ALL */}
       <div className="mt-10 sm:hidden">
         <button
           onClick={() => navigate('/products')}
@@ -140,7 +212,7 @@ const BestSellers = () => {
 
       <style jsx>{`
         @keyframes slideUpFade {
-          0% { opacity: 0; transform: translateY(30px); }
+          0%   { opacity: 0; transform: translateY(30px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         .animate-slide-up {
@@ -152,6 +224,405 @@ const BestSellers = () => {
 };
 
 export default BestSellers;
+
+// fix the solo card issue in mobile screens 
+
+// import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+// import { useNavigate } from 'react-router-dom';
+// import { useVirtualizer } from '@tanstack/react-virtual';
+
+// import {
+//   fetchFeaturedProducts,
+//   selectFeaturedProducts,
+//   selectProductsLoading,
+//   selectProductsError,
+// } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
+
+// import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
+// import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
+// import useInViewFetch from '../../components/HOOKS/useInViewFetch';
+
+// // ── Column count mirrors your Tailwind grid: grid-cols-2 lg:grid-cols-4 ──────
+// const getColumnCount = () => {
+//   const w = window.innerWidth;
+//   if (w >= 1024) return 4;
+//   return 2;
+// };
+
+// // ── VirtualizedProductGrid ────────────────────────────────────────────────────
+// const VirtualizedProductGrid = ({ products }) => {
+//   const parentRef = useRef(null);
+//   const [cols, setCols] = useState(getColumnCount);
+
+//   useEffect(() => {
+//     const onResize = () => setCols(getColumnCount());
+//     window.addEventListener('resize', onResize);
+//     return () => window.removeEventListener('resize', onResize);
+//   }, []);
+
+//   const rows = useMemo(() => {
+//     const result = [];
+//     for (let i = 0; i < products.length; i += cols) {
+//       result.push(products.slice(i, i + cols));
+//     }
+//     return result;
+//   }, [products, cols]);
+
+//   const rowVirtualizer = useVirtualizer({
+//     count: rows.length,
+//     getScrollElement: () => parentRef.current,
+//     estimateSize: () => 420,
+//     overscan: 2,
+//   });
+
+//   return (
+//     <div ref={parentRef} style={{ width: '100%' }}>
+//       <div
+//         style={{
+//           height: `${rowVirtualizer.getTotalSize()}px`,
+//           width: '100%',
+//           position: 'relative',
+//         }}
+//       >
+//         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+//           const rowItems = rows[virtualRow.index];
+//           return (
+//             <div
+//               key={virtualRow.key}
+//               data-index={virtualRow.index}
+//               ref={rowVirtualizer.measureElement}
+//               style={{
+//                 position: 'absolute',
+//                 top: 0,
+//                 left: 0,
+//                 width: '100%',
+//                 transform: `translateY(${virtualRow.start}px)`,
+//               }}
+//             >
+//               <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+//                 {rowItems.map((product, i) => {
+//                   const absoluteIndex = virtualRow.index * cols + i;
+//                   return (
+//                     <div
+//                       key={product._id || absoluteIndex}
+//                       className="animate-slide-up"
+//                       style={{
+//                         animationDelay: `${absoluteIndex * 80}ms`,
+//                         animationFillMode: 'both',
+//                       }}
+//                     >
+//                       <ProductCard product={product} index={absoluteIndex} />
+//                     </div>
+//                   );
+//                 })}
+//               </div>
+//             </div>
+//           );
+//         })}
+//       </div>
+//     </div>
+//   );
+// };
+
+// // ── BestSellers ───────────────────────────────────────────────────────────────
+// const BestSellers = () => {
+//   const dispatch = useDispatch();
+//   const navigate = useNavigate();
+
+//   const products = useSelector(selectFeaturedProducts);
+//   const loading  = useSelector(selectProductsLoading);
+//   const error    = useSelector(selectProductsError);
+
+//   // ── Derive UI states ──────────────────────────────────────────────────────
+//   const hasProducts = products?.length > 0;
+//   const isLoading   = loading.featured;
+//   const hasError    = !!error.featured;
+
+//   // ── Lazy fetch — only fires if Redux has no products yet ──────────────────
+//   // On back-navigation, Redux still holds the products → observerDisabled=true
+//   // → sentinel never fires → products render immediately. No blank screen. ✅
+//   const triggerFetch = useCallback(() => {
+//     dispatch(fetchFeaturedProducts(8));
+//   }, [dispatch]);
+
+//   // Disable the observer once we have products OR an error — no double-fetch
+//   const observerDisabled = hasProducts || hasError;
+
+//   const { ref: sentinelRef } = useInViewFetch(triggerFetch, {
+//     rootMargin: '300px',
+//     disabled: observerDisabled,
+//   });
+
+//   // ── Loading ───────────────────────────────────────────────────────────────
+//   if (isLoading) {
+//     return (
+//       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+//         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//           <div className="space-y-2">
+//             <div className="h-10 w-64 bg-zinc-100 animate-pulse rounded" />
+//             <div className="h-3 w-32 bg-zinc-100 animate-pulse rounded" />
+//           </div>
+//           <div className="hidden sm:block h-10 w-28 bg-zinc-100 animate-pulse rounded" />
+//         </div>
+//         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+//           {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+//         </div>
+//       </section>
+//     );
+//   }
+
+//   // ── Error ─────────────────────────────────────────────────────────────────
+//   if (hasError) {
+//     console.error('❌ [BestSellers] Failed:', error.featured?.message);
+//     return (
+//       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+//         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
+//             Just <span className="text-yellow-600 font-outfit">Arrived</span>
+//           </h2>
+//         </div>
+//         <div className="py-20 text-center border-2 border-dashed border-zinc-100">
+//           <p className="text-zinc-500 mb-2">Failed to load featured products</p>
+//           <p className="text-zinc-400 text-xs mb-6">{error.featured?.message}</p>
+//           <button
+//             onClick={() => dispatch(fetchFeaturedProducts(8))}
+//             className="bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-yellow-600 transition-all"
+//           >
+//             Try Again
+//           </button>
+//         </div>
+//       </section>
+//     );
+//   }
+
+//   // ── Idle sentinel — shown when Redux has no products yet ──────────────────
+//   // KEY FIX: gate on `hasProducts` (Redux state), NOT on `fetchTriggered`
+//   // (local state). Local state resets on every mount — Redux state survives
+//   // navigation. On back-nav, hasProducts=true → we skip this block entirely. ✅
+//   if (!hasProducts) {
+//     return (
+//       <div
+//         ref={sentinelRef}
+//         className="w-full"
+//         style={{ minHeight: '600px' }}
+//         aria-hidden="true"
+//       />
+//     );
+//   }
+
+//   // ── Main Render ───────────────────────────────────────────────────────────
+//   return (
+//     <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+
+//       {/* Sentinel stays mounted but disabled once products are loaded */}
+//       <div ref={sentinelRef} aria-hidden="true" />
+
+//       {/* HEADER */}
+//       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//         <div className="space-y-1">
+//           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
+//             Just&nbsp;&nbsp;<span className="text-yellow-600 font-outfit">Arrived</span>
+//           </h2>
+//           <div className="flex items-center gap-2">
+//             <span className="w-4 h-[1px] bg-yellow-600" />
+//             <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-yellow-600 underline underline-offset-4">
+//               Community Favorites
+//             </p>
+//           </div>
+//         </div>
+//         <button
+//           onClick={() => navigate('/products')}
+//           className="hidden sm:block text-[9px] font-black uppercase tracking-widest bg-zinc-900 text-white px-6 py-3 hover:bg-yellow-600 transition-all"
+//         >
+//           Explore All
+//         </button>
+//       </div>
+
+//       {/* VIRTUALIZED PRODUCT GRID */}
+//       <VirtualizedProductGrid products={products} />
+
+//       {/* MOBILE VIEW ALL */}
+//       <div className="mt-10 sm:hidden">
+//         <button
+//           onClick={() => navigate('/products')}
+//           className="w-full py-4 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
+//         >
+//           View All Best Sellers
+//         </button>
+//       </div>
+
+//       <style jsx>{`
+//         @keyframes slideUpFade {
+//           0%   { opacity: 0; transform: translateY(30px); }
+//           100% { opacity: 1; transform: translateY(0); }
+//         }
+//         .animate-slide-up {
+//           animation: slideUpFade 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+//         }
+//       `}</style>
+//     </section>
+//   );
+// };
+
+// export default BestSellers;
+
+
+// code is working upper code have virtulization plus optmization ??????
+// import React, { useEffect } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+// import { useNavigate } from 'react-router-dom';
+// import {
+//   fetchFeaturedProducts,
+//   selectFeaturedProducts,
+//   selectProductsLoading,
+//   selectProductsError,
+// } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
+// import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
+// // import ProductCard from '../../pages/Product_segment/ProductCard';
+// import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
+
+// const BestSellers = () => {
+//   const dispatch = useDispatch();
+//   const navigate = useNavigate();
+
+//   const products = useSelector(selectFeaturedProducts);
+//   const loading  = useSelector(selectProductsLoading);
+//   const error    = useSelector(selectProductsError);
+
+//   // ✅ show skeleton if actively loading OR if no data yet and no error
+//   const isLoading = loading.featured || (!products?.length && !error.featured);
+//   const hasError  = !!error.featured;
+
+//   useEffect(() => {
+//     // console.log('⭐ [BestSellers] Fetching featured products...');
+//     dispatch(fetchFeaturedProducts(8));
+//   }, [dispatch]);
+
+//   // debug — remove once confirmed working..>>>>>>>>
+//   // useEffect(() => {
+//   //   console.log('📦 [BestSellers] state →', {
+//   //     productsCount: products?.length,
+//   //     isLoading,
+//   //     hasError,
+//   //     rawLoading: loading.featured,
+//   //     rawError: error.featured,
+//   //   });
+//   // }, [products, isLoading, hasError]);
+
+//   // ── Loading ──────────────────────────────────────────────────────────────
+//   if (isLoading) {
+//     return (
+//       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+//         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//           <div className="space-y-2">
+//             <div className="h-10 w-64 bg-zinc-100 animate-pulse rounded" />
+//             <div className="h-3 w-32 bg-zinc-100 animate-pulse rounded" />
+//           </div>
+//           <div className="hidden sm:block h-10 w-28 bg-zinc-100 animate-pulse rounded" />
+//         </div>
+//         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+//           {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+//         </div>
+//       </section>
+//     );
+//   }
+
+//   // ── Error ────────────────────────────────────────────────────────────────
+//   if (hasError) {
+//     console.error('❌ [BestSellers] Failed:', error.featured?.message);
+//     return (
+//       <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+//         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
+//             Just <span className="text-yellow-600 font-outfit">Arrived</span>
+//           </h2>
+//         </div>
+//         <div className="py-20 text-center border-2 border-dashed border-zinc-100">
+//           <p className="text-zinc-500 mb-2">Failed to load featured products</p>
+//           <p className="text-zinc-400 text-xs mb-6">{error.featured?.message}</p>
+//           <button
+//             onClick={() => {
+//               console.log('🔄 [BestSellers] Retrying...');
+//               dispatch(fetchFeaturedProducts(8));
+//             }}
+//             className="bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-yellow-600 transition-all"
+//           >
+//             Try Again
+//           </button>
+//         </div>
+//       </section>
+//     );
+//   }
+
+//   // ── Empty ────────────────────────────────────────────────────────────────
+//   if (!products || products.length === 0) {
+//     console.warn('⚠️ [BestSellers] No featured products returned from API');
+//     return null;
+//   }
+
+//   // ── Main Render ──────────────────────────────────────────────────────────
+//   return (
+//     <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+
+//       {/* HEADER */}
+//       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+//         <div className="space-y-1">
+//           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
+//             Just&nbsp;&nbsp;<span className="text-yellow-600 font-outfit">Arrived</span>
+//           </h2>
+//           <div className="flex items-center gap-2">
+//             <span className="w-4 h-[1px] bg-yellow-600"></span>
+//             <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-yellow-600 underline underline-offset-4">
+//               Community Favorites
+//             </p>
+//           </div>
+//         </div>
+//         <button
+//           onClick={() => navigate('/products')}
+//           className="hidden sm:block text-[9px] font-black uppercase tracking-widest bg-zinc-900 text-white px-6 py-3 hover:bg-yellow-600 transition-all"
+//         >
+//           Explore All
+//         </button>
+//       </div>
+
+//       {/* PRODUCT GRID */}
+//       <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+//         {products.map((product, index) => (
+//           <div
+//             key={product._id || index}
+//             className="animate-slide-up"
+//             style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+//           >
+//             <ProductCard product={product} index={index} />
+//           </div>
+//         ))}
+//       </div>
+
+//       {/* MOBILE VIEW ALL */}
+//       <div className="mt-10 sm:hidden">
+//         <button
+//           onClick={() => navigate('/products')}
+//           className="w-full py-4 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
+//         >
+//           View All Best Sellers
+//         </button>
+//       </div>
+
+//       <style jsx>{`
+//         @keyframes slideUpFade {
+//           0% { opacity: 0; transform: translateY(30px); }
+//           100% { opacity: 1; transform: translateY(0); }
+//         }
+//         .animate-slide-up {
+//           animation: slideUpFade 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+//         }
+//       `}</style>
+//     </section>
+//   );
+// };
+
+// export default BestSellers;
 
 
 // import React, { useState, useEffect } from 'react';

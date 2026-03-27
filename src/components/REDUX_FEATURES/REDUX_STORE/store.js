@@ -12,6 +12,7 @@ import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
 import userCategoriesReducer from "../REDUX_SLICES/userCategoriesSlice";
 import userWishlistReducer from '../REDUX_SLICES/userWishlistSlice';
 import userCartReducer from '../REDUX_SLICES/userCartSlice'; 
+import userAddressReducer from "../REDUX_SLICES/Useraddressslice";
 
 const store = configureStore({
   reducer: {
@@ -29,7 +30,8 @@ const store = configureStore({
     userProducts: userProductsReducer,
     userCategories: userCategoriesReducer,
     userWishlist: userWishlistReducer,
-    userCart: userCartReducer
+    userCart: userCartReducer,
+    userAddress: userAddressReducer,
   },
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });

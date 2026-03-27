@@ -154,7 +154,7 @@ export const removeCartItem = createAsyncThunk(
         throw new Error(response.data.message || "Failed to remove cart item");
       console.log(`✅ [removeCartItem] removed`);
       // return { cart: response.data.cart, productSlug };
-     return { cart: response.data.cart, productSlug, productId, variantId };
+      return { cart: response.data.cart, productSlug, productId, variantId };
     } catch (error) {
       logError("removeCartItem", error, { productId, variantId });
       return rejectWithValue({
@@ -317,7 +317,7 @@ const userCartSlice = createSlice({
     },
 
     addGuestCartItem: (state, action) => {
-      const { productSlug, variantId, quantity = 1 } = action.payload;
+      const { productId, productSlug, variantId, quantity = 1 } = action.payload;
       const existing = state.guestItems.find(
         (i) => i.productSlug === productSlug && i.variantId === variantId
       );
@@ -325,12 +325,28 @@ const userCartSlice = createSlice({
         existing.quantity += quantity;
         console.log(`🛒 [addGuestCartItem] slug="${productSlug}" qty → ${existing.quantity}`);
       } else {
-        state.guestItems.push({ productSlug, variantId, quantity });
+        state.guestItems.push({ productId, productSlug, variantId, quantity });
         console.log(`🛒 [addGuestCartItem] slug="${productSlug}" added qty=${quantity}`);
       }
       state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
       saveGuestCart(state.guestItems);
     },
+    // data store with product slug but backend expect with productid upper code have 
+    // addGuestCartItem: (state, action) => {
+    //   const { productSlug, variantId, quantity = 1 } = action.payload;
+    //   const existing = state.guestItems.find(
+    //     (i) => i.productSlug === productSlug && i.variantId === variantId
+    //   );
+    //   if (existing) {
+    //     existing.quantity += quantity;
+    //     console.log(`🛒 [addGuestCartItem] slug="${productSlug}" qty → ${existing.quantity}`);
+    //   } else {
+    //     state.guestItems.push({ productSlug, variantId, quantity });
+    //     console.log(`🛒 [addGuestCartItem] slug="${productSlug}" added qty=${quantity}`);
+    //   }
+    //   state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
+    //   saveGuestCart(state.guestItems);
+    // },
 
     updateGuestCartItem: (state, action) => {
       const { productSlug, variantId, quantity } = action.payload;

@@ -1,82 +1,32 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchAllCategories,
   selectHierarchicalCategories,
 } from "../REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
+import { useEffect } from "react";
 
 const Categories = () => {
-  const [isInView, setIsInView] = useState(false);
-  const sectionRef = useRef(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const categories = useSelector(selectHierarchicalCategories);
   const { loading, error } = useSelector((state) => state.userCategories);
-  const hasCategories = categories && categories.length > 0;
 
-  // Fetch categories on mount
   useEffect(() => {
-    dispatch(fetchAllCategories())
-      .unwrap()
-      .then((data) => {
-        // ✅ CORRECT: data is the actual API response payload
-        // console.log("✅ Categories fetched:", data);
-        // console.log("✅ Categories array:", data.categories);
-        //   console.log("FIRST PRODUCT FULL OBJECT:", JSON.stringify(data.categories?.[0], null, 2));;
-      })
-      .catch((err) => {
-        // ✅ CORRECT: err is the rejectWithValue payload
-        console.error("❌ Categories fetch failed:", err);
-      });
+    dispatch(fetchAllCategories()).catch((err) => {
+      console.error("❌ Categories fetch failed:", err);
+    });
   }, [dispatch]);
 
-  // ✅ CORRECT way to log Redux state — runs every time categories updates
-  // useEffect(() => {
-  //   console.log("📦 Redux state → categories:", categories);
-  //   console.log("📦 Redux state → loading:", loading);
-  //   console.log("📦 Redux state → error:", error);
-  // }, [categories, loading, error]);
-
-  // Handle category click — route matches CatProducts route: /category/:slug
   const handleCategoryClick = (category) => {
     const slug =
-      category.slug ||
-      category.name?.toLowerCase().replace(/\s+/g, "-");
+      category.slug || category.name?.toLowerCase().replace(/\s+/g, "-");
     navigate(`/category/${slug}`);
   };
 
-  // Intersection Observer — must re-run after categories load because on first
-  // render the component returns null (loading/empty), so sectionRef.current is
-  // null and the observer attaches to nothing. Re-running when hasCategories
-  // becomes true ensures the ref is attached to a real DOM node.
-  useEffect(() => {
-    if (!hasCategories) return; // don't bother until there's a DOM node to observe
-
-    // If already in viewport (e.g. top of page), fire immediately
-    if (sectionRef.current) {
-      const rect = sectionRef.current.getBoundingClientRect();
-      if (rect.top < window.innerHeight) {
-        setIsInView(true);
-        return;
-      }
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    return () => observer.disconnect();
-  }, [hasCategories]); // ← re-runs when data arrives
-
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading.categories) {
     return (
       <div className="w-full bg-white py-8 md:py-16">
@@ -97,23 +47,21 @@ const Categories = () => {
     );
   }
 
-  // ── Error ──────────────────────────────────────────────────────────────────
+  // ── Error ────────────────────────────────────────────────────────────────
   if (error.categories) {
     console.error("Failed to load categories:", error.categories);
     return null;
   }
 
-  // ── Empty ──────────────────────────────────────────────────────────────────
+  // ── Empty ────────────────────────────────────────────────────────────────
   if (!categories || categories.length === 0) return null;
 
+  // ── Main Render ──────────────────────────────────────────────────────────
   return (
     <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
-      <section
-        ref={sectionRef}
-        className={`container mx-auto px-4 transition-all duration-700 ease-out ${
-          isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
-        }`}
-      >
+      <section className="container mx-auto px-4">
+
+        {/* Header */}
         <div className="flex flex-row items-center justify-center mb-8 md:mb-12">
           <h3 className="text-xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900">
             <span className="w-2 h-8 md:w-3 md:h-12 bg-[#f7a221] rounded-full shadow-[0_0_15px_rgba(247,162,33,0.3)]" />
@@ -121,6 +69,7 @@ const Categories = () => {
           </h3>
         </div>
 
+        {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
           {categories.map((cat, idx) => (
             <div
@@ -146,6 +95,7 @@ const Categories = () => {
             </div>
           ))}
         </div>
+
       </section>
     </div>
   );

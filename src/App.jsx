@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { ToastContainer } from "react-toastify";
+import ToastConfig from "./components/Common/ToastConfig";
 import "react-toastify/dist/ReactToastify.css";
 
 import Navbar from "./components/Common/Navbar";
@@ -148,26 +148,184 @@ const AppContent = () => {
 const App = () => {
     return (
         <Router>
-            <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={true}
-                closeOnClick
-                pauseOnHover
-                theme="dark"
-                toastClassName={() =>
-                    "relative flex p-1 min-h-10 rounded-xl justify-between overflow-hidden cursor-pointer bg-[#0d0d0d] border border-white/10 mb-2 shadow-2xl"
-                }
-                bodyClassName={() => "text-sm font-medium text-white block p-3"}
-                progressClassName="bg-[#f7a221]"
-            />
+               <ToastConfig />  {/* Clean! */}
             <AppContent />
         </Router>
     );
 };
 
 export default App;
+
+// import React, { useState, useEffect } from "react";
+// import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
+// import { useDispatch, useSelector } from "react-redux";
+// import { ToastContainer } from "react-toastify";
+// import "react-toastify/dist/ReactToastify.css";
+
+// import Navbar from "./components/Common/Navbar";
+// import Footer from "./components/Common/Footer";
+// import WhatsAppFloat from "./components/WHATSAPP_FLOAT/WhatsAppFloat";
+// import LogRegister from "./components/USER_LOGIN_SEGMENT/LogRegister";
+
+// import Homepage from "./components/Webside_Pages/Homepage";
+// import CustomerCare from "./components/Webside_Pages/CustomerCare";
+// import CatProducts from "./User_Side_Web_Interface/Product_segment/CatPro_segment/CatProducts";
+// import ProductDetail from "./User_Side_Web_Interface/Product_segment/Productdetail";
+// import UserDashboard from "./User_Side_Web_Interface/User_Dash_Segment/UserDashboard";
+// import AdminDashboard from "./components/ADMIN_SEGMENT/Admin_dashboard";
+
+// import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/REDUX_SLICES/authSlice";
+
+// // ── These two are fine at app-level — they power Navbar badges ───────────────
+// import useWishlistInit from "./components/HOOKS/useWishlistInit";
+// import useCartInit from "./components/HOOKS/useCartInit";
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// // ── Optional: protect /account routes ────────────────────────────────────────
+// const PrivateRoute = ({ children }) => {
+//     const { isLoggedIn } = useSelector((state) => state.auth);
+//     // Redirect to home if not logged in, preserving intended destination
+//     return isLoggedIn ? children : <Navigate to="/" replace />;
+// };
+
+// const AppContent = () => {
+//     const dispatch = useDispatch();
+//     const { isLoggedIn, user } = useSelector((state) => state.auth);
+//     const location = useLocation();
+
+//     const [searchQuery, setSearchQuery]   = useState("");
+//     const [isMenuOpen,  setIsMenuOpen]    = useState(false);
+//     const [isAuthOpen,  setIsAuthOpen]    = useState(false);
+
+//     const isAdminRoute = location.pathname.startsWith('/admin') ||
+//                          location.pathname.startsWith('/admindash');
+
+//     // ── Cart & wishlist — fine here, they drive Navbar badges ────────────────
+//     // DO NOT call these again inside any tab component
+//     useWishlistInit();
+//     useCartInit();
+
+//     // ── On app load: restore session silently if token exists ─────────────────
+//     // This populates auth.user — UserDashboard sidebar reads from here directly
+//     // No separate profile fetch needed in UserDashboard
+//     useEffect(() => {
+//         const token = localStorage.getItem("accessToken");
+//         if (token) dispatch(fetchMe());
+//     }, [dispatch]);
+
+//     // ── Listen for forced logout (token refresh failure) ──────────────────────
+//     useEffect(() => {
+//         const handleForceLogout = () => dispatch(forceLogout());
+//         window.addEventListener("auth:logout", handleForceLogout);
+//         return () => window.removeEventListener("auth:logout", handleForceLogout);
+//     }, [dispatch]);
+
+//     // ── Show auth popup once per session (not on admin routes) ───────────────
+//     useEffect(() => {
+//         const hasVisited = sessionStorage.getItem("hasVisitedBABA");
+//         if (!hasVisited && !isLoggedIn && !isAdminRoute) {
+//             const timer = setTimeout(() => {
+//                 setIsAuthOpen(true);
+//                 sessionStorage.setItem("hasVisitedBABA", "true");
+//             }, 2000);
+//             return () => clearTimeout(timer);
+//         }
+//     }, [isLoggedIn, isAdminRoute]);
+
+//     const handleLoginSuccess = () => setIsAuthOpen(false);
+//     const handleLogout       = () => dispatch(logoutUser());
+//     const openAuthModal      = () => setIsAuthOpen(true);
+
+//     return (
+//         <div className="min-h-screen">
+
+//             {!isAdminRoute && (
+//                 <Navbar
+//                     searchQuery={searchQuery}
+//                     setSearchQuery={setSearchQuery}
+//                     isMenuOpen={isMenuOpen}
+//                     setIsMenuOpen={setIsMenuOpen}
+//                     isLoggedIn={isLoggedIn}
+//                     user={user}
+//                     onOpenAuth={openAuthModal}
+//                     onLogout={handleLogout}
+//                 />
+//             )}
+
+//             <Routes>
+//                 {/* ── Public routes ──────────────────────────────────────── */}
+//                 <Route path="/"                element={<Homepage onOpenAuth={openAuthModal} />} />
+//                 <Route path="/customer-care"   element={<CustomerCare onOpenAuth={openAuthModal} />} />
+//                 <Route path="/category/:slug"  element={<CatProducts />} />
+//                 <Route path="/products/:slug"  element={<ProductDetail />} />
+
+//                 {/* ── Admin routes ───────────────────────────────────────── */}
+//                 <Route path="/admin"           element={<AdminDashboard />} />
+//                 <Route path="/admindash/*"     element={<AdminDashboard />} />
+
+//                 {/* ── User account routes ────────────────────────────────── */}
+//                 {/*
+//                  *  /account            → redirects to /account/userprofile
+//                  *  /account/:activeTab → UserDashboard handles the switch internally
+//                  *
+//                  *  Wrapped in PrivateRoute — remove it if you want public access
+//                  *  and handle the "not logged in" state inside UserDashboard itself.
+//                  */}
+//                 <Route
+//                     path="/account"
+//                     element={<Navigate to="/account/userprofile" replace />}
+//                 />
+//                 <Route
+//                     path="/account/:activeTab"
+//                     element={
+//                         <PrivateRoute>
+//                             <UserDashboard />
+//                         </PrivateRoute>
+//                     }
+//                 />
+
+//                 {/* ── 404 fallback ───────────────────────────────────────── */}
+//                 <Route path="*" element={<Navigate to="/" replace />} />
+//             </Routes>
+
+//             {!isAdminRoute && <Footer />}
+
+//             {!isAdminRoute && (
+//                 <LogRegister
+//                     isOpen={isAuthOpen}
+//                     onClose={() => setIsAuthOpen(false)}
+//                     onLoginSuccess={handleLoginSuccess}
+//                 />
+//             )}
+
+//             <WhatsAppFloat />
+//         </div>
+//     );
+// };
+
+// const App = () => {
+//     return (
+//         <Router>
+//             <ToastContainer
+//                 position="top-right"
+//                 autoClose={3000}
+//                 hideProgressBar={false}
+//                 newestOnTop={true}
+//                 closeOnClick
+//                 pauseOnHover
+//                 theme="dark"
+//                 toastClassName={() =>
+//                     "relative flex p-1 min-h-10 rounded-xl justify-between overflow-hidden cursor-pointer bg-[#0d0d0d] border border-white/10 mb-2 shadow-2xl"
+//                 }
+//                 bodyClassName={() => "text-sm font-medium text-white block p-3"}
+//                 progressClassName="bg-[#f7a221]"
+//             />
+//             <AppContent />
+//         </Router>
+//     );
+// };
+
+// export default App;
 
 // import React, { useState, useEffect } from "react";
 // import Navbar from "./components/Common/Navbar";

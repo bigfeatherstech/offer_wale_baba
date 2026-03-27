@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -8,8 +8,10 @@ import {
   ChevronRight,
   Filter,
   X,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import ProductCard from "../ProductCard";
 import SkeletonCard from "../Product_Card_Skelleton/SkeletonCard";
@@ -28,120 +30,163 @@ import {
   selectCurrentCategory,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Premium Pagination
-// ─────────────────────────────────────────────────────────────────────────────
-const Pagination = ({ pagination, onPageChange }) => {
-  const { page, totalPages } = pagination;
-  if (!totalPages || totalPages <= 1) return null;
+// ── How many columns at each breakpoint ──────────────────────────────────────
+// Must match Tailwind grid classes used below
+const getColumnCount = () => {
+  const w = window.innerWidth;
+  if (w >= 1280) return 4; // xl:grid-cols-4
+  if (w >= 1024) return 3; // lg:grid-cols-3
+  return 1;                // grid-cols-2 (mobile + tablet)
+};
 
-  const delta = 1;
-  const pages = [];
-  for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
-    pages.push(i);
-  }
+const LOAD_MORE_SKELETON_COUNT = 12;
+
+// ── VirtualizedProductGrid ────────────────────────────────────────────────────
+// Virtualizes rows of a CSS grid.
+// Only rows near the viewport are in the DOM — off-screen rows are unmounted.
+const VirtualizedProductGrid = ({ products, loadingMore }) => {
+  const parentRef = useRef(null);
+  const [cols, setCols] = useState(getColumnCount);
+
+  useEffect(() => {
+    const onResize = () => setCols(getColumnCount());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Chunk flat array into rows
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < products.length; i += cols) {
+      result.push(products.slice(i, i + cols));
+    }
+    return result;
+  }, [products, cols]);
+
+  const skeletonRowCount = loadingMore ? Math.ceil(LOAD_MORE_SKELETON_COUNT / cols) : 0;
+  const totalRows        = rows.length + skeletonRowCount;
+
+  const rowVirtualizer = useVirtualizer({
+    count:            totalRows,
+    getScrollElement: () => parentRef.current,
+    estimateSize:     () => 420,  // approximate row height — adjust to your card
+    overscan:         3,
+  });
 
   return (
-    <div className="flex items-center justify-center gap-2 mt-16 py-8 border-t border-zinc-100">
-      <button
-        disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
-        className="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-zinc-200 disabled:opacity-30 hover:bg-zinc-900 hover:text-white transition-all"
+    <div ref={parentRef} style={{ width: "100%" }}>
+      <div
+        style={{
+          height:   `${rowVirtualizer.getTotalSize()}px`,
+          width:    "100%",
+          position: "relative",
+        }}
       >
-        Prev
-      </button>
-      {pages.map((p) => (
-        <button
-          key={p}
-          onClick={() => onPageChange(p)}
-          className={`w-10 h-10 text-xs font-bold transition-all ${
-            p === page ? "bg-zinc-900 text-white" : "text-zinc-400 hover:text-zinc-900"
-          }`}
-        >
-          {p}
-        </button>
-      ))}
-      <button
-        disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
-        className="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-zinc-200 disabled:opacity-30 hover:bg-zinc-900 hover:text-white transition-all"
-      >
-        Next
-      </button>
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const isSkeletonRow = virtualRow.index >= rows.length;
+          const rowItems      = isSkeletonRow
+            ? Array(cols).fill(null)
+            : rows[virtualRow.index];
+
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              style={{
+                position:  "absolute",
+                top:       0,
+                left:      0,
+                width:     "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
+                {isSkeletonRow
+                  ? Array(cols).fill(null).map((_, i) => (
+                      <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
+                    ))
+                  : rowItems.map((product, i) => (
+                      <ProductCard
+                        key={product._id || i}
+                        product={product}
+                        index={virtualRow.index * cols + i}
+                      />
+                    ))
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CatProducts — Main Component
-// ─────────────────────────────────────────────────────────────────────────────
+// ── CatProducts ───────────────────────────────────────────────────────────────
 const CatProducts = () => {
-  const { slug } = useParams();
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+  const { slug }   = useParams();
+  const dispatch   = useDispatch();
+  const navigate   = useNavigate();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // ── Selectors ──────────────────────────────────────────────────────────────
-  // ✅ now reads from per-slug buckets — no race condition with homepage sections
   const products   = useSelector(selectProductsBySlug(slug));
   const pagination = useSelector(selectPaginationBySlug(slug)) || { page: 1, totalPages: 1, total: 0 };
   const catLoading = useSelector(selectLoadingBySlug(slug));
   const catError   = useSelector(selectErrorBySlug(slug));
 
-  // category meta (name, image, description)
-  const currentCategory    = useSelector(selectCurrentCategory);
+  const currentCategory      = useSelector(selectCurrentCategory);
   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
   const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-  const isLoading = catLoading || categoryLoadingState;
-  const hasError  = !isLoading && (!!catError || !!categoryErrorState);
+  // ── Derived ────────────────────────────────────────────────────────────────
+  // isLoading: true only on the initial load (no products yet)
+  // loadingMore: true when loading additional pages via Load More
+  const currentPage  = pagination?.page ?? 1;
+  const isLoading    = (catLoading || categoryLoadingState) && products.length === 0;
+  const loadingMore  = catLoading && products.length > 0;
+  const hasError     = !catLoading && !categoryLoadingState && (!!catError || !!categoryErrorState);
+  const hasMore      = pagination?.hasNextPage ?? false;
 
   // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
 
-    // console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
+    console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
 
-    // clear previous category meta so stale name/image doesn't flash
     dispatch(clearCurrentCategory());
-
-    // fetch category meta (name, description, image)
     dispatch(fetchCategoryBySlug(slug));
-
-    // fetch products for this slug
-    // ✅ stored in categoryProducts[slug] — won't overwrite other slugs
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
 
     return () => {
-      // console.log(`🧹 [CatProducts] cleanup for slug="${slug}"`);
       dispatch(clearCurrentCategory());
-      // NOTE: we intentionally do NOT clear categoryProducts[slug] here
-      // so if the user navigates back, they see cached products instantly
+      // Intentionally NOT clearing categoryProducts[slug] — cached for back-nav
     };
   }, [slug, dispatch]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handlePageChange = useCallback((newPage) => {
-    // console.log(`📄 [CatProducts] slug="${slug}" → page=${newPage}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 12 }));
-  }, [slug, dispatch]);
+  const handleLoadMore = useCallback(() => {
+    if (catLoading || !hasMore) return;
+    const nextPage = (pagination?.page ?? 1) + 1;
+    console.log(`📄 [CatProducts] Load More slug="${slug}" → page=${nextPage}`);
+    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 12 }));
+  }, [slug, dispatch, catLoading, hasMore, pagination]);
 
-  const handleRetry = () => {
-    // console.log(`🔄 [CatProducts] Retrying slug="${slug}"`);
+  const handleRetry = useCallback(() => {
+    console.log(`🔄 [CatProducts] Retry slug="${slug}"`);
     dispatch(fetchCategoryBySlug(slug));
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
-  };
+  }, [slug, dispatch]);
 
   const categoryName = currentCategory?.name || slug?.replace(/-/g, " ") || "Collection";
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
-      {/* ── BREADCRUMB HEADER ── */}
+      {/* ── STICKY BREADCRUMB ── */}
       <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -163,7 +208,7 @@ const CatProducts = () => {
         </div>
       </div>
 
-      {/* ── HERO HEADER ── */}
+      {/* ── HERO ── */}
       <section className="relative h-[40vh] md:h-[50vh] flex items-center justify-center overflow-hidden bg-zinc-900">
         {currentCategory?.image?.url ? (
           <>
@@ -177,7 +222,6 @@ const CatProducts = () => {
         ) : (
           <div className="absolute inset-0 bg-zinc-100" />
         )}
-
         <div className="relative z-10 text-center px-4">
           <h1 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tight mb-4">
             {categoryName}
@@ -190,7 +234,7 @@ const CatProducts = () => {
         </div>
       </section>
 
-      {/* ── MAIN CONTENT AREA ── */}
+      {/* ── MAIN CONTENT ── */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-12 flex flex-col md:flex-row gap-10">
 
         {/* ── SIDEBAR ── */}
@@ -200,13 +244,15 @@ const CatProducts = () => {
               <SlidersHorizontal size={16} />
               <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
             </div>
-
             <div className="space-y-6">
               <div>
                 <h4 className="text-[11px] font-black uppercase tracking-widest mb-4">Price Range</h4>
                 <div className="space-y-2">
-                  {['Under ₹1000', '₹1000 - ₹5000', 'Over ₹5000'].map(range => (
-                    <label key={range} className="flex items-center gap-3 text-sm text-zinc-600 cursor-pointer hover:text-zinc-900">
+                  {["Under ₹1000", "₹1000 - ₹5000", "Over ₹5000"].map((range) => (
+                    <label
+                      key={range}
+                      className="flex items-center gap-3 text-sm text-zinc-600 cursor-pointer hover:text-zinc-900"
+                    >
                       <input type="checkbox" className="w-4 h-4 accent-zinc-900" />
                       {range}
                     </label>
@@ -217,15 +263,22 @@ const CatProducts = () => {
           </div>
         </aside>
 
-        {/* ── PRODUCT GRID ── */}
+        {/* ── PRODUCT GRID AREA ── */}
         <div className="flex-grow">
+
+          {/* Products count bar */}
           <div className="flex items-center justify-between mb-8 pb-4 border-b border-zinc-50 md:border-none">
             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
               {pagination.total || 0} Products Found
+              {products.length > 0 && products.length < (pagination.total || 0) && (
+                <span className="ml-2 text-zinc-300">
+                  — showing {products.length}
+                </span>
+              )}
             </p>
           </div>
 
-          {/* Error State */}
+          {/* ── Error State ── */}
           {hasError && (
             <div className="py-20 text-center">
               <AlertCircle size={40} className="mx-auto text-red-400 mb-4" />
@@ -235,33 +288,71 @@ const CatProducts = () => {
               <p className="text-zinc-400 text-xs mb-6">slug: {slug}</p>
               <button
                 onClick={handleRetry}
-                className="inline-flex items-center gap-2 bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest"
+                className="inline-flex items-center gap-2 bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-yellow-600 transition-colors"
               >
                 <RefreshCw size={14} /> Retry
               </button>
             </div>
           )}
 
-          {/* Loading State */}
+          {/* ── Initial Loading skeleton ── */}
           {isLoading && (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+              {[...Array(12)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
           )}
 
-          {/* Products */}
+          {/* ── Products — virtualized ── */}
           {!isLoading && !hasError && products.length > 0 && (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
-                {products.map((product, idx) => (
-                  <ProductCard key={product._id || idx} product={product} index={idx} />
-                ))}
-              </div>
-              <Pagination pagination={pagination} onPageChange={handlePageChange} />
+              <VirtualizedProductGrid
+                products={products}
+                loadingMore={loadingMore}
+              />
+
+              {/* ── Load More button ── */}
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={catLoading}
+                    className={`
+                      inline-flex items-center gap-3 px-12 py-4
+                      text-[11px] font-black uppercase tracking-[0.2em]
+                      border-2 border-zinc-900 transition-all duration-200
+                      ${catLoading
+                        ? "bg-zinc-900 text-white cursor-wait opacity-80"
+                        : "bg-white text-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-95"
+                      }
+                    `}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      <>
+                        Load More
+                        <span className="text-zinc-400 font-normal normal-case tracking-normal text-[10px]">
+                          ({pagination.total - products.length} remaining)
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* ── All loaded indicator ── */}
+              {!hasMore && products.length > 0 && (
+                <p className="text-center text-[10px] font-bold uppercase tracking-widest text-zinc-300 mt-12 pb-4">
+                  All {products.length} products loaded
+                </p>
+              )}
             </>
           )}
 
-          {/* Empty State */}
+          {/* ── Empty State ── */}
           {!isLoading && !hasError && products.length === 0 && (
             <div className="py-20 text-center border-2 border-dashed border-zinc-100">
               <p className="text-zinc-400 uppercase tracking-widest text-xs">No products found</p>
@@ -285,7 +376,7 @@ const CatProducts = () => {
             <div className="space-y-8">
               <p className="text-xs font-black uppercase tracking-widest mb-4">Price</p>
               <div className="space-y-4">
-                {['Under ₹1000', '₹1000 - ₹5000', 'Over ₹5000'].map(range => (
+                {["Under ₹1000", "₹1000 - ₹5000", "Over ₹5000"].map((range) => (
                   <div key={range} className="flex items-center justify-between">
                     <span className="text-sm">{range}</span>
                     <input type="checkbox" className="w-5 h-5 accent-zinc-900" />
@@ -307,6 +398,317 @@ const CatProducts = () => {
 };
 
 export default CatProducts;
+// code working but try to add virtulization 
+
+// import React, { useEffect, useCallback, useState } from "react";
+// import { useParams, useNavigate, Link } from "react-router-dom";
+// import { useDispatch, useSelector } from "react-redux";
+// import {
+//   ArrowLeft,
+//   AlertCircle,
+//   RefreshCw,
+//   ChevronRight,
+//   Filter,
+//   X,
+//   SlidersHorizontal
+// } from "lucide-react";
+
+// import ProductCard from "../ProductCard";
+// import SkeletonCard from "../Product_Card_Skelleton/SkeletonCard";
+
+// import {
+//   fetchProductsByCategory,
+//   selectProductsBySlug,
+//   selectLoadingBySlug,
+//   selectErrorBySlug,
+//   selectPaginationBySlug,
+// } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice";
+
+// import {
+//   fetchCategoryBySlug,
+//   clearCurrentCategory,
+//   selectCurrentCategory,
+// } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // Premium Pagination
+// // ─────────────────────────────────────────────────────────────────────────────
+// const Pagination = ({ pagination, onPageChange }) => {
+//   const { page, totalPages } = pagination;
+//   if (!totalPages || totalPages <= 1) return null;
+
+//   const delta = 1;
+//   const pages = [];
+//   for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
+//     pages.push(i);
+//   }
+
+//   return (
+//     <div className="flex items-center justify-center gap-2 mt-16 py-8 border-t border-zinc-100">
+//       <button
+//         disabled={page <= 1}
+//         onClick={() => onPageChange(page - 1)}
+//         className="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-zinc-200 disabled:opacity-30 hover:bg-zinc-900 hover:text-white transition-all"
+//       >
+//         Prev
+//       </button>
+//       {pages.map((p) => (
+//         <button
+//           key={p}
+//           onClick={() => onPageChange(p)}
+//           className={`w-10 h-10 text-xs font-bold transition-all ${
+//             p === page ? "bg-zinc-900 text-white" : "text-zinc-400 hover:text-zinc-900"
+//           }`}
+//         >
+//           {p}
+//         </button>
+//       ))}
+//       <button
+//         disabled={page >= totalPages}
+//         onClick={() => onPageChange(page + 1)}
+//         className="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-zinc-200 disabled:opacity-30 hover:bg-zinc-900 hover:text-white transition-all"
+//       >
+//         Next
+//       </button>
+//     </div>
+//   );
+// };
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // CatProducts — Main Component
+// // ─────────────────────────────────────────────────────────────────────────────
+// const CatProducts = () => {
+//   const { slug } = useParams();
+//   const dispatch = useDispatch();
+//   const navigate = useNavigate();
+
+//   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+//   // ── Selectors ──────────────────────────────────────────────────────────────
+//   // ✅ now reads from per-slug buckets — no race condition with homepage sections
+//   const products   = useSelector(selectProductsBySlug(slug));
+//   const pagination = useSelector(selectPaginationBySlug(slug)) || { page: 1, totalPages: 1, total: 0 };
+//   const catLoading = useSelector(selectLoadingBySlug(slug));
+//   const catError   = useSelector(selectErrorBySlug(slug));
+
+//   // category meta (name, image, description)
+//   const currentCategory    = useSelector(selectCurrentCategory);
+//   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
+//   const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
+
+//   // ── Derived state ──────────────────────────────────────────────────────────
+//   const isLoading = catLoading || categoryLoadingState;
+//   const hasError  = !isLoading && (!!catError || !!categoryErrorState);
+
+//   // ── Effects ────────────────────────────────────────────────────────────────
+//   useEffect(() => {
+//     if (!slug) return;
+
+//     // console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
+
+//     // clear previous category meta so stale name/image doesn't flash
+//     dispatch(clearCurrentCategory());
+
+//     // fetch category meta (name, description, image)
+//     dispatch(fetchCategoryBySlug(slug));
+
+//     // fetch products for this slug
+//     // ✅ stored in categoryProducts[slug] — won't overwrite other slugs
+//     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
+
+//     return () => {
+//       // console.log(`🧹 [CatProducts] cleanup for slug="${slug}"`);
+//       dispatch(clearCurrentCategory());
+//       // NOTE: we intentionally do NOT clear categoryProducts[slug] here
+//       // so if the user navigates back, they see cached products instantly
+//     };
+//   }, [slug, dispatch]);
+
+//   // ── Handlers ───────────────────────────────────────────────────────────────
+//   const handlePageChange = useCallback((newPage) => {
+//     // console.log(`📄 [CatProducts] slug="${slug}" → page=${newPage}`);
+//     window.scrollTo({ top: 0, behavior: "smooth" });
+//     dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 12 }));
+//   }, [slug, dispatch]);
+
+//   const handleRetry = () => {
+//     // console.log(`🔄 [CatProducts] Retrying slug="${slug}"`);
+//     dispatch(fetchCategoryBySlug(slug));
+//     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
+//   };
+
+//   const categoryName = currentCategory?.name || slug?.replace(/-/g, " ") || "Collection";
+
+//   // ── Render ─────────────────────────────────────────────────────────────────
+//   return (
+//     <div className="min-h-screen bg-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+
+//       {/* ── BREADCRUMB HEADER ── */}
+//       <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
+//         <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
+//           <div className="flex items-center gap-4">
+//             <button onClick={() => navigate(-1)} className="p-1 text-zinc-500 hover:text-zinc-900">
+//               <ArrowLeft size={20} />
+//             </button>
+//             <nav className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-zinc-400">
+//               <Link to="/" className="hover:text-zinc-900">Home</Link>
+//               <ChevronRight size={10} />
+//               <span className="text-zinc-900 font-bold">{categoryName}</span>
+//             </nav>
+//           </div>
+//           <button
+//             onClick={() => setIsFilterOpen(true)}
+//             className="md:hidden p-2 text-zinc-900"
+//           >
+//             <Filter size={20} />
+//           </button>
+//         </div>
+//       </div>
+
+//       {/* ── HERO HEADER ── */}
+//       <section className="relative h-[40vh] md:h-[50vh] flex items-center justify-center overflow-hidden bg-zinc-900">
+//         {currentCategory?.image?.url ? (
+//           <>
+//             <img
+//               src={currentCategory.image.url}
+//               alt={categoryName}
+//               className="absolute inset-0 w-full h-full object-cover opacity-60"
+//             />
+//             <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-transparent to-transparent" />
+//           </>
+//         ) : (
+//           <div className="absolute inset-0 bg-zinc-100" />
+//         )}
+
+//         <div className="relative z-10 text-center px-4">
+//           <h1 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tight mb-4">
+//             {categoryName}
+//           </h1>
+//           {currentCategory?.description && (
+//             <p className="max-w-xl mx-auto text-zinc-200 text-sm md:text-base font-light leading-relaxed">
+//               {currentCategory.description}
+//             </p>
+//           )}
+//         </div>
+//       </section>
+
+//       {/* ── MAIN CONTENT AREA ── */}
+//       <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-12 flex flex-col md:flex-row gap-10">
+
+//         {/* ── SIDEBAR ── */}
+//         <aside className="hidden md:block w-64 flex-shrink-0">
+//           <div className="sticky top-24 space-y-8">
+//             <div className="flex items-center gap-2 pb-4 border-b border-zinc-100">
+//               <SlidersHorizontal size={16} />
+//               <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
+//             </div>
+
+//             <div className="space-y-6">
+//               <div>
+//                 <h4 className="text-[11px] font-black uppercase tracking-widest mb-4">Price Range</h4>
+//                 <div className="space-y-2">
+//                   {['Under ₹1000', '₹1000 - ₹5000', 'Over ₹5000'].map(range => (
+//                     <label key={range} className="flex items-center gap-3 text-sm text-zinc-600 cursor-pointer hover:text-zinc-900">
+//                       <input type="checkbox" className="w-4 h-4 accent-zinc-900" />
+//                       {range}
+//                     </label>
+//                   ))}
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         </aside>
+
+//         {/* ── PRODUCT GRID ── */}
+//         <div className="flex-grow">
+//           <div className="flex items-center justify-between mb-8 pb-4 border-b border-zinc-50 md:border-none">
+//             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+//               {pagination.total || 0} Products Found
+//             </p>
+//           </div>
+
+//           {/* Error State */}
+//           {hasError && (
+//             <div className="py-20 text-center">
+//               <AlertCircle size={40} className="mx-auto text-red-400 mb-4" />
+//               <p className="text-zinc-600 mb-2">
+//                 {catError?.message || categoryErrorState?.message || "Error loading products"}
+//               </p>
+//               <p className="text-zinc-400 text-xs mb-6">slug: {slug}</p>
+//               <button
+//                 onClick={handleRetry}
+//                 className="inline-flex items-center gap-2 bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest"
+//               >
+//                 <RefreshCw size={14} /> Retry
+//               </button>
+//             </div>
+//           )}
+
+//           {/* Loading State */}
+//           {isLoading && (
+//             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+//               {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+//             </div>
+//           )}
+
+//           {/* Products */}
+//           {!isLoading && !hasError && products.length > 0 && (
+//             <>
+//               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+//                 {products.map((product, idx) => (
+//                   <ProductCard key={product._id || idx} product={product} index={idx} />
+//                 ))}
+//               </div>
+//               <Pagination pagination={pagination} onPageChange={handlePageChange} />
+//             </>
+//           )}
+
+//           {/* Empty State */}
+//           {!isLoading && !hasError && products.length === 0 && (
+//             <div className="py-20 text-center border-2 border-dashed border-zinc-100">
+//               <p className="text-zinc-400 uppercase tracking-widest text-xs">No products found</p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {/* ── MOBILE FILTER DRAWER ── */}
+//       {isFilterOpen && (
+//         <div className="fixed inset-0 z-[100] md:hidden">
+//           <div
+//             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+//             onClick={() => setIsFilterOpen(false)}
+//           />
+//           <div className="absolute inset-y-0 right-0 w-[80%] bg-white p-6 shadow-2xl animate-in slide-in-from-right duration-300">
+//             <div className="flex items-center justify-between mb-8">
+//               <h3 className="text-lg font-bold uppercase tracking-tighter">Filter</h3>
+//               <button onClick={() => setIsFilterOpen(false)}><X size={24} /></button>
+//             </div>
+//             <div className="space-y-8">
+//               <p className="text-xs font-black uppercase tracking-widest mb-4">Price</p>
+//               <div className="space-y-4">
+//                 {['Under ₹1000', '₹1000 - ₹5000', 'Over ₹5000'].map(range => (
+//                   <div key={range} className="flex items-center justify-between">
+//                     <span className="text-sm">{range}</span>
+//                     <input type="checkbox" className="w-5 h-5 accent-zinc-900" />
+//                   </div>
+//                 ))}
+//               </div>
+//               <button
+//                 onClick={() => setIsFilterOpen(false)}
+//                 className="w-full bg-zinc-900 text-white py-4 text-xs font-black uppercase tracking-widest"
+//               >
+//                 Apply Filters
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default CatProducts;
 
 // import React, { useEffect, useCallback, useState } from "react";
 // import { useParams, useNavigate, Link } from "react-router-dom";
