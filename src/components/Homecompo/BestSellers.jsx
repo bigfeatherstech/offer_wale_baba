@@ -14,10 +14,11 @@ import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCa
 import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
 import useInViewFetch from '../../components/HOOKS/useInViewFetch';
 
-// ── FIXED: Column count logic for SOLO mobile view ──────
+// ── FIXED: Logic for 4 columns on LG, 1 on Mobile ──────
 const getColumnCount = () => {
   const w = window.innerWidth;
-  if (w >= 1024) return 3; // lg:grid-cols-3
+  if (w >= 1024) return 4; // lg:grid-cols-4
+  if (w >= 768) return 2;  // md:grid-cols-2 (optional but recommended for tablet)
   return 1;                // grid-cols-1 (Mobile Solo)
 };
 
@@ -43,8 +44,12 @@ const VirtualizedProductGrid = ({ products }) => {
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    // Estimate size needs to be taller for solo mobile cards
-    estimateSize: () => (window.innerWidth < 1024 ? 500 : 420),
+    // Dynamic height estimation for responsiveness
+    estimateSize: useCallback(() => {
+        if (window.innerWidth < 768) return 550; // Tall mobile cards
+        if (window.innerWidth < 1024) return 480; // Tablet
+        return 420; // Desktop
+    }, []),
     overscan: 2,
   });
 
@@ -74,16 +79,16 @@ const VirtualizedProductGrid = ({ products }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {/* FIXED: grid-cols-1 for mobile solo, lg:grid-cols-4 for desktop */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-10 md:gap-x-8 pb- md:pb-6">
+              {/* FIXED: grid-cols-1 for mobile, md:grid-cols-2, lg:grid-cols-4 for desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8 pb-6">
                 {rowItems.map((product, i) => {
                   const absoluteIndex = virtualRow.index * cols + i;
                   return (
                     <div
                       key={product._id || absoluteIndex}
-                      className="animate-slide-up"
+                      className="animate-slide-up w-full"
                       style={{
-                        animationDelay: `${(absoluteIndex % cols) * 80}ms`,
+                        animationDelay: `${(i) * 80}ms`,
                         animationFillMode: 'both',
                       }}
                     >
@@ -134,8 +139,8 @@ const BestSellers = () => {
           </div>
           <div className="hidden sm:block h-10 w-28 bg-zinc-100 animate-pulse rounded" />
         </div>
-        {/* Skeleton matches solo mobile / 4 desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
+        {/* Skeleton matches the 1 -> 4 column layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
           {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       </section>

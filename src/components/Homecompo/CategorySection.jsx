@@ -23,16 +23,15 @@ const WAVE_PATHS = [
   "M0,60 C300,120 600,0 900,60 L1200,60 L1200,120 L0,120 Z",
 ];
 
-// ── FIXED: Added dynamic mapping for Tailwind classes ────────────────────────
+// ── FIXED: Updated logic for 4 cards on LG and 1 on Mobile ──────────────────
 const getColumnCount = () => {
   const w = window.innerWidth;
-  if (w >= 1024) return 5; 
-  if (w >= 768)  return 4; 
-  if (w >= 640)  return 3; 
-  return 1;                // SOLO mobile
+  if (w >= 1024) return 4; // LG screens: 4 cards
+  if (w >= 768)  return 2; // MD screens: 2 cards (optional middle-ground)
+  return 1;                // Mobile: 1 card (SOLO)
 };
 
-const LOAD_MORE_SKELETON_COUNT = 10;
+const LOAD_MORE_SKELETON_COUNT = 8;
 
 const VirtualizedProductGrid = ({ products, loadingMore }) => {
   const parentRef   = useRef(null);
@@ -56,10 +55,14 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
   const totalRows        = rows.length + skeletonRowCount;
 
   const rowVirtualizer = useVirtualizer({
-    count:        totalRows,
+    count:         totalRows,
     getScrollElement: () => parentRef.current,
     // Mobile solo cards need more height than desktop grid items
-    estimateSize: () => (window.innerWidth < 640 ? 500 : 380),
+    estimateSize: useCallback(() => {
+        const w = window.innerWidth;
+        if (w < 768) return 550; // Mobile Solo
+        return 420;             // Tablet / Desktop
+    }, []),
     overscan:     2,
   });
 
@@ -91,8 +94,8 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {/* FIXED: grid-cols-1 for mobile to match getColumnCount return 1 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-3 gap-4 md:gap-6 pb-4 md:pb-6">
+              {/* FIXED: grid-cols-1 (Mobile), md:grid-cols-2, lg:grid-cols-4 (Desktop) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 pb-4 md:pb-6">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
                       <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
@@ -137,7 +140,7 @@ const CategorySection = ({ slug, title }) => {
   const hasMore      = pagination?.hasNextPage ?? false;
 
   const triggerFetch = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
 
   const { ref: sentinelRef } = useInViewFetch(triggerFetch, {
@@ -148,11 +151,11 @@ const CategorySection = ({ slug, title }) => {
   const handleLoadMore = useCallback(() => {
     if (loading || !hasMore) return;
     const nextPage = (pagination?.page ?? 1) + 1;
-    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 10 }));
+    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 12 }));
   }, [slug, dispatch, loading, hasMore, pagination]);
 
   const handleRetry = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
 
   const waveRef = useRef(null);
@@ -195,9 +198,9 @@ const CategorySection = ({ slug, title }) => {
             <div className="h-8 md:h-10 w-56 bg-gray-100 animate-pulse rounded" />
             <div className="h-5 w-24 bg-gray-100 animate-pulse rounded mt-4 sm:mt-0" />
           </div>
-          {/* Skeleton matches solo mobile / 5 desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-            {[...Array(10)].map((_, i) => <SkeletonCard key={i} />)}
+          {/* Skeleton matches the 1 on Mobile / 4 on LG grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         </section>
       </div>

@@ -12,7 +12,8 @@ import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
 import userCategoriesReducer from "../REDUX_SLICES/userCategoriesSlice";
 import userWishlistReducer from '../REDUX_SLICES/userWishlistSlice';
 import userCartReducer from '../REDUX_SLICES/userCartSlice'; 
-import userAddressReducer from "../REDUX_SLICES/Useraddressslice";
+import userAddressReducer from '../REDUX_SLICES/Useraddressslice';
+import { searchApi } from '../REDUX_SLICES/searchApi';
 
 const store = configureStore({
   reducer: {
@@ -32,7 +33,10 @@ const store = configureStore({
     userWishlist: userWishlistReducer,
     userCart: userCartReducer,
     userAddress: userAddressReducer,
+    [searchApi.reducerPath]: searchApi.reducer,
   },
+  middleware: (getDefaultMiddleware) =>
+   getDefaultMiddleware().concat(searchApi.middleware),
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });
 

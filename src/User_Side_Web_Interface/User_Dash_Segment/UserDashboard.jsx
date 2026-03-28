@@ -18,13 +18,19 @@ import { logoutUser } from '../../components/REDUX_FEATURES/REDUX_SLICES/authSli
 
 const UserDashboard = () => {
     const { activeTab: urlTab } = useParams();
+     console.log('🟢 UserDashboard - URL param:', urlTab);
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
+     console.log('🟢 UserDashboard - user:', user);
     
     // Initialize state from URL, but allow it to be null
     const [openTab, setOpenTab] = useState(urlTab || null);
+      console.log('🟢 UserDashboard - openTab state:', openTab);
     const activeTabRef = useRef(null);
+//     useEffect(() => {
+//   setOpenTab(urlTab || null);
+// }, [urlTab]);
 
     const menuItems = [
         { id: 'userprofile',  label: 'Personal Info',     icon: <User size={20} />,      component: <UserProfile /> },
