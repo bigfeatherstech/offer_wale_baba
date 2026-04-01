@@ -581,7 +581,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             <div className="overflow-y-auto h-[calc(100%-80px)]">
               <div className="p-4 space-y-4">
                 {isLoggedIn && user && (
-                  <div className="bg-gradient-to-r from-[#F7A221]/15 to-transparent p-4 rounded-2xl mb-4 border border-[#F7A221]/20">
+                  <div className="bg-gradient-to-r  from-[#F7A221]/15 to-transparent p-4 rounded-2xl mb-4 border border-[#F7A221]/20" 
+                  onClick={() => {
+            navigate('/account/userprofile')
+            setIsMenuOpen(false);  }}>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Welcome back,</p>
                     <p className="font-black text-black text-lg">{user?.name || "User"}</p>
                     <p className="text-xs text-gray-600 mt-1">{user?.email}</p>

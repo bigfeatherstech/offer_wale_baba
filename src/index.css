@@ -155,26 +155,28 @@ body {
   animation: shake 0.4s ease-in-out;
 }
 
-
-.Toastify__toast-container {
-  width: 90vw !important;
-  max-width: 400px !important;
-  padding: 0 !important;
-}
-
 @media only screen and (max-width: 480px) {
   .Toastify__toast-container {
-    right: 5vw !important;
-    top: 20px !important;
-    margin: 0 auto !important;
+    width: 100vw !important;
+    padding: 16px !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
   }
-}
 
-.Toastify__toast-icon {
-  width: 22px !important;
-  margin-inline-end: 12px !important;
-}
+  .Toastify__toast {
+    margin-bottom: 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
 
-.Toastify__toast {
-  align-items: center !important;
+  /* .Toastify__toast-body {
+    padding-left: 12px !important;
+  } */
+  /* index.css */
+  .Toastify__toast-body {
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important; /* Let our Tailwind classes handle internal spacing */
+  }
 }

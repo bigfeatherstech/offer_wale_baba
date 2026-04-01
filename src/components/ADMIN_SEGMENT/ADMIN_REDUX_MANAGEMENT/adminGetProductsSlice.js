@@ -11,7 +11,7 @@ import {
 // Existing thunk for fetching all products
 export const fetchProducts = createAsyncThunk(
   "adminGetProducts/fetchProducts",
-  async ({ page = 1, limit = 50 } = {}, { rejectWithValue }) => {
+  async ({ page = 1, limit = 10 } = {}, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get("/admin/products/all", {
         params: { page, limit },

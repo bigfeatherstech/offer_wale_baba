@@ -26,7 +26,7 @@ const StatsCards = ({ activeProducts, featuredProducts, archivedProducts, onView
         {/* Archived */}
         <button
           onClick={onViewArchived}
-          className="px-4 py-2 bg-gray-50 rounded-xl flex items-center space-x-2 hover:bg-gray-100 transition-colors"
+          className="px-4 py-2 cursor-pointer bg-gray-50 rounded-xl flex items-center space-x-2 hover:bg-gray-100 transition-colors"
         >
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -37,7 +37,7 @@ const StatsCards = ({ activeProducts, featuredProducts, archivedProducts, onView
         {/* Bulk Upload trigger */}
         <button
           onClick={() => setShowBulkUpload(true)}
-          className="px-4 py-2 bg-green-50 rounded-xl flex items-center space-x-2 hover:bg-green-100 transition-colors group"
+          className="px-4 py-2 bg-green-50 rounded-xl cursor-pointer flex items-center space-x-2 hover:bg-green-100 transition-colors group"
         >
           <svg
             className="w-4 h-4 text-green-600 group-hover:scale-110 transition-transform"

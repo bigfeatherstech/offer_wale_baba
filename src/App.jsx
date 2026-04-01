@@ -21,6 +21,7 @@ import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/RE
 // ── These two are fine at app-level — they power Navbar badges ───────────────
 import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
+import CustomerDashboard from "./components/ADMIN_SEGMENT/ADMIN_TABS/CUSTOMER_SEGMENT/CustomerDashboard";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -104,6 +105,9 @@ const AppContent = () => {
                 {/* ── Admin routes ───────────────────────────────────────── */}
                 <Route path="/admin"           element={<AdminDashboard />} />
                 <Route path="/admindash/*"     element={<AdminDashboard />} />
+
+                {/* ── Customer segment ───────────────────────────── */}
+                {/* <Route path="/admindash/customers/*" element={<CustomerDashboard />} /> */}
 
                 {/* ── User account routes ────────────────────────────────── */}
                 {/*

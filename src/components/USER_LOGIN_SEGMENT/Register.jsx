@@ -3,16 +3,24 @@ import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
-import OtpVerification from "./OTPVerification";
+import { GoogleIcon } from "./Login";
 
-const Register = ({ onRegisterSuccess, onLoginClick }) => {
+/*
+  SUB-VIEW SLIDE ANIMATION
+  ─────────────────────────
+  Each sub-view (default → email form → phone form) gets a unique `key`.
+  When the key changes React unmounts the old element and mounts the new
+  one, triggering the CSS animation class fresh every time.
+  No Tailwind plugin needed — we rely on the @keyframes injected in LogRegister.
+*/
+
+const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
   const dispatch = useDispatch();
   const { loading, error, pendingEmail } = useSelector((state) => state.auth);
-  const googleBtnRef = useRef(null); // ✅ Reference for the hidden official button
+  const googleBtnRef = useRef(null);
 
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [showPhoneForm, setShowPhoneForm] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
+  // "default" | "email" | "phone"
+  const [view, setView] = useState("default");
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -20,181 +28,707 @@ const Register = ({ onRegisterSuccess, onLoginClick }) => {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
+    if (error) toast.error(error);
   }, [error]);
 
-  // ✅ FIXED: Logic to trigger the hidden official button for centered popup
   const handleGoogleClick = () => {
     if (googleBtnRef.current) {
-      const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
-      if (googleDiv) {
-        googleDiv.click();
-      } else {
-        const iframe = googleBtnRef.current.querySelector('iframe');
-        if(iframe) iframe.click();
+      const el = googleBtnRef.current.querySelector('div[role="button"]');
+      if (el) el.click();
+      else {
+        const iframe = googleBtnRef.current.querySelector("iframe");
+        if (iframe) iframe.click();
       }
     }
   };
 
   useEffect(() => {
-    const initializeGoogle = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
-          use_fedcm_for_prompt: true, // ✅ Fixes the FedCM warning
-          callback: async (response) => {
-            const result = await dispatch(googleLogin({ idToken: response.credential }));
-            if (googleLogin.fulfilled.match(result)) {
-              toast.success("Welcome to the Club!");
-              onRegisterSuccess();
-            }
-          },
-        });
-
-        // ✅ Render real button into hidden container to prepare popup context
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: "outline",
-          size: "large",
-        });
-      }
+    const init = () => {
+      if (!window.google) return;
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+        use_fedcm_for_prompt: true,
+        callback: async (response) => {
+          const result = await dispatch(googleLogin({ idToken: response.credential }));
+          if (googleLogin.fulfilled.match(result)) {
+            toast.success("Welcome to the Club!");
+            onRegisterSuccess();
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: "outline", size: "large",
+      });
     };
     if (!window.google) {
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.onload = initializeGoogle;
-      document.body.appendChild(script);
-    } else { initializeGoogle(); }
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.onload = init;
+      document.body.appendChild(s);
+    } else { init(); }
   }, [dispatch, onRegisterSuccess]);
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     try {
-      const result = await dispatch(registerUser({ name, email, password, phone: phone || undefined })).unwrap();
+      const result = await dispatch(
+        registerUser({ name, email, password, phone: phone || undefined })
+      ).unwrap();
       if (result) {
         toast.success("OTP Dispatched!");
-        setShowOtpModal(true);
+        onShowOtp(pendingEmail || email, name);
       }
-    } catch (err) {}
+    } catch (_) {}
   };
 
-  const handleGoBack = () => {
-    setShowEmailForm(false);
-    setShowPhoneForm(false);
+  const goBack = () => {
+    setView("default");
     dispatch(clearError());
   };
 
+  const goEmail = () => setView("email");
+  const goPhone = () => setView("phone");
+
+  // Header is always the same — only the body animates
   return (
     <div className="w-full">
-      {/* HIDDEN GOOGLE BUTTON CONTAINER */}
-      <div ref={googleBtnRef} style={{ display: 'none' }}></div>
+      <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      <div className="relative mb-6">
-        {(showEmailForm || showPhoneForm) && (
-          <button 
-            onClick={handleGoBack}
-            className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-all mb-4 cursor-pointer"
-          >
-            <ChevronLeft size={16} /> BACK
-          </button>
-        )}
+      {/* Back button — only when in sub-view */}
+      {view !== "default" && (
+        <button
+          onClick={goBack}
+          className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-colors mb-4 cursor-pointer touch-manipulation lr-slide-left"
+        >
+          <ChevronLeft size={16} /> BACK
+        </button>
+      )}
 
-        <h2 className="text-4xl text-center font-black text-white mb-1 tracking-tighter">
-          JOIN THE <span className="text-[#f7a221]">CLUB</span>
-        </h2>
-        <p className="text-gray-400 text-center text-[10px] tracking-widest uppercase">
-          Exclusive deals await
-        </p>
-      </div>
+      <h2 className="text-3xl sm:text-4xl text-center font-black text-white mb-1 tracking-tighter">
+        JOIN THE <span className="text-[#f7a221]">CLUB</span>
+      </h2>
+      <p className="text-white/40 text-center text-[10px] tracking-widest uppercase mb-5">
+        Exclusive deals await
+      </p>
 
       {error && (
-        <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-[11px] text-center font-medium animate-in fade-in zoom-in duration-300">
+        <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
           {error}
         </div>
       )}
 
-      {!showEmailForm && !showPhoneForm ? (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {/* CUSTOM UI GOOGLE BUTTON */}
+      {/* ── Default view — slide in from left when returning ── */}
+      {view === "default" && (
+        <div key="reg-default" className="lr-slide-up">
           <button
             onClick={handleGoogleClick}
-            className="w-full bg-white hover:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 mb-6 shadow-lg active:scale-95"
+            className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
           >
-            <svg className="w-5 h-5" viewBox="0 0 48 48">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
+            <GoogleIcon />
             <span className="text-sm">Sign up with Google</span>
           </button>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/5" />
+            </div>
             <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
-              <span className="px-4 bg-[#0d0d0d] text-gray-600">OR REGISTER WITH</span>
+              <span className="px-4 bg-[#0d0d0d] text-white/25">OR REGISTER WITH</span>
             </div>
           </div>
 
-          <button 
-            onClick={() => setShowEmailForm(true)} 
-            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-4 px-6 rounded-2xl flex items-center gap-2 mb-4 text-sm transition-all group active:scale-[0.98]"
+          <button
+            onClick={goEmail}
+            className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 mb-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
           >
-            <Mail size={18} className="text-[#f7a221]" /> Email Address <ArrowRight size={18} className="ml-auto group-hover:translate-x-1 transition-transform" />
-          </button>
-          <button 
-            onClick={() => setShowPhoneForm(true)} 
-            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-4 px-6 rounded-2xl flex items-center gap-2 text-sm transition-all group active:scale-[0.98]"
-          >
-            <Phone size={18} className="text-[#f7a221]" /> Phone Number <ArrowRight size={18} className="ml-auto group-hover:translate-x-1 transition-transform" />
+            <Mail size={17} className="text-[#f7a221] shrink-0" />
+            <span>Email Address</span>
+            <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
           </button>
 
-          
-        </div>
-      ) : showPhoneForm ? (
-        <form onSubmit={(e) => { e.preventDefault(); toast.info("Phone registration coming soon!"); }} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
-          </div>
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
-          </div>
-          <button type="submit" className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] text-black font-black py-4 rounded-xl transition-all shadow-lg text-sm uppercase">
-            SEND OTP
+          <button
+            onClick={goPhone}
+            className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
+          >
+            <Phone size={17} className="text-[#f7a221] shrink-0" />
+            <span>Phone Number</span>
+            <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
           </button>
-        </form>
-      ) : (
-        <form onSubmit={handleEmailSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+
+          <p className="text-center text-white/25 text-[11px] mt-5 tracking-wide">
+            Already a member?{" "}
+            <button
+              onClick={onLoginClick}
+              className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
+            >
+              Login here
+            </button>
+          </p>
+        </div>
+      )}
+
+      {/* ── Email form — slides in from right ── */}
+      {view === "email" && (
+        <form
+          key="reg-email"
+          onSubmit={handleEmailSubmit}
+          className="space-y-3.5 lr-slide-right"
+        >
           <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+            />
           </div>
           <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+            />
           </div>
           <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required minLength="6" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="password"
+              placeholder="Password (min 6 chars)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+              minLength="6"
+            />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-lg text-sm uppercase">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+          >
             {loading ? "SENDING OTP..." : "GET STARTED"}
           </button>
         </form>
       )}
 
-      {showOtpModal && (
-        <OtpVerification email={pendingEmail || email} name={name} onClose={() => setShowOtpModal(false)} onVerify={onRegisterSuccess} />
+      {/* ── Phone form — slides in from right ── */}
+      {view === "phone" && (
+        <form
+          key="reg-phone"
+          onSubmit={(e) => { e.preventDefault(); toast.info("Phone registration coming soon!"); }}
+          className="space-y-3.5 lr-slide-right"
+        >
+          <div className="relative">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+            />
+          </div>
+          <div className="relative">
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="tel"
+              placeholder="Phone Number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] text-black font-black py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation"
+          >
+            SEND OTP
+          </button>
+        </form>
       )}
     </div>
   );
 };
 
 export default Register;
+
+// import React, { useState, useEffect, useRef } from "react";
+// import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+// import { GoogleIcon } from "./Login"; // ✅ FIX 2: Shared icon for visual consistency
+
+// const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error, pendingEmail } = useSelector((state) => state.auth);
+//   const googleBtnRef = useRef(null);
+
+//   const [showEmailForm, setShowEmailForm] = useState(false);
+//   const [showPhoneForm, setShowPhoneForm] = useState(false);
+
+//   const [name, setName] = useState("");
+//   const [phone, setPhone] = useState("");
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+
+//   useEffect(() => {
+//     if (error) toast.error(error);
+//   }, [error]);
+
+//   const handleGoogleClick = () => {
+//     if (googleBtnRef.current) {
+//       const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
+//       if (googleDiv) {
+//         googleDiv.click();
+//       } else {
+//         const iframe = googleBtnRef.current.querySelector("iframe");
+//         if (iframe) iframe.click();
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const initializeGoogle = () => {
+//       if (window.google) {
+//         window.google.accounts.id.initialize({
+//           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//           use_fedcm_for_prompt: true,
+//           callback: async (response) => {
+//             const result = await dispatch(googleLogin({ idToken: response.credential }));
+//             if (googleLogin.fulfilled.match(result)) {
+//               toast.success("Welcome to the Club!");
+//               onRegisterSuccess();
+//             }
+//           },
+//         });
+//         window.google.accounts.id.renderButton(googleBtnRef.current, {
+//           theme: "outline",
+//           size: "large",
+//         });
+//       }
+//     };
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.onload = initializeGoogle;
+//       document.body.appendChild(script);
+//     } else {
+//       initializeGoogle();
+//     }
+//   }, [dispatch, onRegisterSuccess]);
+
+//   const handleEmailSubmit = async (e) => {
+//     e.preventDefault();
+//     try {
+//       const result = await dispatch(
+//         registerUser({ name, email, password, phone: phone || undefined })
+//       ).unwrap();
+//       if (result) {
+//         toast.success("OTP Dispatched!");
+//         // ✅ FIX 1: Notify parent (LogRegister) to show OTP — no local modal
+//         onShowOtp(pendingEmail || email, name);
+//       }
+//     } catch (err) {}
+//   };
+
+//   const handleGoBack = () => {
+//     setShowEmailForm(false);
+//     setShowPhoneForm(false);
+//     dispatch(clearError());
+//   };
+
+//   return (
+//     <div className="w-full">
+//       {/* Hidden Google button */}
+//       <div ref={googleBtnRef} style={{ display: "none" }} />
+
+//       <div className="relative mb-5 sm:mb-6">
+//         {(showEmailForm || showPhoneForm) && (
+//           <button
+//             onClick={handleGoBack}
+//             className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-all mb-4 cursor-pointer touch-manipulation"
+//           >
+//             <ChevronLeft size={16} /> BACK
+//           </button>
+//         )}
+
+//         <h2 className="text-3xl sm:text-4xl text-center font-black text-white mb-1 tracking-tighter">
+//           JOIN THE <span className="text-[#f7a221]">CLUB</span>
+//         </h2>
+//         <p className="text-gray-400 text-center text-[10px] tracking-widest uppercase">
+//           Exclusive deals await
+//         </p>
+//       </div>
+
+//       {error && (
+//         <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+//           {error}
+//         </div>
+//       )}
+
+//       {!showEmailForm && !showPhoneForm ? (
+//         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+//           {/* ✅ FIX 2: Exact same Google button as Login */}
+//           <button
+//             onClick={handleGoogleClick}
+//             className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-semibold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <GoogleIcon />
+//             <span className="text-sm font-bold">Sign up with Google</span>
+//           </button>
+
+//           <div className="relative my-5 sm:my-6">
+//             <div className="absolute inset-0 flex items-center">
+//               <div className="w-full border-t border-white/5" />
+//             </div>
+//             <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+//               <span className="px-4 bg-[#0d0d0d] text-gray-600">OR REGISTER WITH</span>
+//             </div>
+//           </div>
+
+//           <button
+//             onClick={() => setShowEmailForm(true)}
+//             className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 mb-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <Mail size={17} className="text-[#f7a221] shrink-0" />
+//             <span>Email Address</span>
+//             <ArrowRight size={16} className="ml-auto text-gray-500 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
+//           </button>
+
+//           <button
+//             onClick={() => setShowPhoneForm(true)}
+//             className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <Phone size={17} className="text-[#f7a221] shrink-0" />
+//             <span>Phone Number</span>
+//             <ArrowRight size={16} className="ml-auto text-gray-500 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
+//           </button>
+
+//           <p className="text-center text-gray-600 text-[11px] mt-5 tracking-wide">
+//             Already a member?{" "}
+//             <button
+//               onClick={onLoginClick}
+//               className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
+//             >
+//               Login here
+//             </button>
+//           </p>
+//         </div>
+//       ) : showPhoneForm ? (
+//         <form
+//           onSubmit={(e) => {
+//             e.preventDefault();
+//             toast.info("Phone registration coming soon!");
+//           }}
+//           className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-500"
+//         >
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={17} />
+//             <input
+//               type="text"
+//               placeholder="Full Name"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               autoComplete="name"
+//               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={17} />
+//             <input
+//               type="tel"
+//               placeholder="Phone Number"
+//               value={phone}
+//               onChange={(e) => setPhone(e.target.value)}
+//               autoComplete="tel"
+//               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               required
+//             />
+//           </div>
+//           <button
+//             type="submit"
+//             className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] text-black font-black py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation"
+//           >
+//             SEND OTP
+//           </button>
+//         </form>
+//       ) : (
+//         <form
+//           onSubmit={handleEmailSubmit}
+//           className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-500"
+//         >
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={17} />
+//             <input
+//               type="text"
+//               placeholder="Full Name"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               autoComplete="name"
+//               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={17} />
+//             <input
+//               type="email"
+//               placeholder="Email Address"
+//               value={email}
+//               onChange={(e) => setEmail(e.target.value)}
+//               autoComplete="email"
+//               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={17} />
+//             <input
+//               type="password"
+//               placeholder="Password (min 6 chars)"
+//               value={password}
+//               onChange={(e) => setPassword(e.target.value)}
+//               autoComplete="new-password"
+//               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               required
+//               minLength="6"
+//             />
+//           </div>
+//           <button
+//             type="submit"
+//             disabled={loading}
+//             className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+//           >
+//             {loading ? "SENDING OTP..." : "GET STARTED"}
+//           </button>
+//         </form>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default Register;
+
+// import React, { useState, useEffect, useRef } from "react";
+// import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+// import OtpVerification from "./OTPVerification";
+
+// const Register = ({ onRegisterSuccess, onLoginClick }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error, pendingEmail } = useSelector((state) => state.auth);
+//   const googleBtnRef = useRef(null); // ✅ Reference for the hidden official button
+
+//   const [showEmailForm, setShowEmailForm] = useState(false);
+//   const [showPhoneForm, setShowPhoneForm] = useState(false);
+//   const [showOtpModal, setShowOtpModal] = useState(false);
+
+//   const [name, setName] = useState("");
+//   const [phone, setPhone] = useState("");
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+
+//   useEffect(() => {
+//     if (error) {
+//       toast.error(error);
+//     }
+//   }, [error]);
+
+//   // ✅ FIXED: Logic to trigger the hidden official button for centered popup
+//   const handleGoogleClick = () => {
+//     if (googleBtnRef.current) {
+//       const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
+//       if (googleDiv) {
+//         googleDiv.click();
+//       } else {
+//         const iframe = googleBtnRef.current.querySelector('iframe');
+//         if(iframe) iframe.click();
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const initializeGoogle = () => {
+//       if (window.google) {
+//         window.google.accounts.id.initialize({
+//           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//           use_fedcm_for_prompt: true, // ✅ Fixes the FedCM warning
+//           callback: async (response) => {
+//             const result = await dispatch(googleLogin({ idToken: response.credential }));
+//             if (googleLogin.fulfilled.match(result)) {
+//               toast.success("Welcome to the Club!");
+//               onRegisterSuccess();
+//             }
+//           },
+//         });
+
+//         // ✅ Render real button into hidden container to prepare popup context
+//         window.google.accounts.id.renderButton(googleBtnRef.current, {
+//           theme: "outline",
+//           size: "large",
+//         });
+//       }
+//     };
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.onload = initializeGoogle;
+//       document.body.appendChild(script);
+//     } else { initializeGoogle(); }
+//   }, [dispatch, onRegisterSuccess]);
+
+//   const handleEmailSubmit = async (e) => {
+//     e.preventDefault();
+//     try {
+//       const result = await dispatch(registerUser({ name, email, password, phone: phone || undefined })).unwrap();
+//       if (result) {
+//         toast.success("OTP Dispatched!");
+//         setShowOtpModal(true);
+//       }
+//     } catch (err) {}
+//   };
+
+//   const handleGoBack = () => {
+//     setShowEmailForm(false);
+//     setShowPhoneForm(false);
+//     dispatch(clearError());
+//   };
+
+//   return (
+//     <div className="w-full">
+//       {/* HIDDEN GOOGLE BUTTON CONTAINER */}
+//       <div ref={googleBtnRef} style={{ display: 'none' }}></div>
+
+//       <div className="relative mb-6">
+//         {(showEmailForm || showPhoneForm) && (
+//           <button 
+//             onClick={handleGoBack}
+//             className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-all mb-4 cursor-pointer"
+//           >
+//             <ChevronLeft size={16} /> BACK
+//           </button>
+//         )}
+
+//         <h2 className="text-4xl text-center font-black text-white mb-1 tracking-tighter">
+//           JOIN THE <span className="text-[#f7a221]">CLUB</span>
+//         </h2>
+//         <p className="text-gray-400 text-center text-[10px] tracking-widest uppercase">
+//           Exclusive deals await
+//         </p>
+//       </div>
+
+//       {error && (
+//         <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-[11px] text-center font-medium animate-in fade-in zoom-in duration-300">
+//           {error}
+//         </div>
+//       )}
+
+//       {!showEmailForm && !showPhoneForm ? (
+//         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+//           {/* CUSTOM UI GOOGLE BUTTON */}
+//           <button
+//             onClick={handleGoogleClick}
+//             className="w-full bg-white hover:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 mb-6 shadow-lg active:scale-95"
+//           >
+//             <svg className="w-5 h-5" viewBox="0 0 48 48">
+//               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+//               <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+//               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+//               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+//             </svg>
+//             <span className="text-sm">Sign up with Google</span>
+//           </button>
+
+//           <div className="relative my-8">
+//             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+//             <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+//               <span className="px-4 bg-[#0d0d0d] text-gray-600">OR REGISTER WITH</span>
+//             </div>
+//           </div>
+
+//           <button 
+//             onClick={() => setShowEmailForm(true)} 
+//             className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-4 px-6 rounded-2xl flex items-center gap-2 mb-4 text-sm transition-all group active:scale-[0.98]"
+//           >
+//             <Mail size={18} className="text-[#f7a221]" /> Email Address <ArrowRight size={18} className="ml-auto group-hover:translate-x-1 transition-transform" />
+//           </button>
+//           <button 
+//             onClick={() => setShowPhoneForm(true)} 
+//             className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white cursor-pointer font-medium py-4 px-6 rounded-2xl flex items-center gap-2 text-sm transition-all group active:scale-[0.98]"
+//           >
+//             <Phone size={18} className="text-[#f7a221]" /> Phone Number <ArrowRight size={18} className="ml-auto group-hover:translate-x-1 transition-transform" />
+//           </button>
+
+          
+//         </div>
+//       ) : showPhoneForm ? (
+//         <form onSubmit={(e) => { e.preventDefault(); toast.info("Phone registration coming soon!"); }} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//             <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+//           </div>
+//           <div className="relative">
+//             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//             <input type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+//           </div>
+//           <button type="submit" className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] text-black font-black py-4 rounded-xl transition-all shadow-lg text-sm uppercase">
+//             SEND OTP
+//           </button>
+//         </form>
+//       ) : (
+//         <form onSubmit={handleEmailSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//             <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+//           </div>
+//           <div className="relative">
+//             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//             <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required />
+//           </div>
+//           <div className="relative">
+//             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
+//             <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#f7a221] text-sm" required minLength="6" />
+//           </div>
+//           <button type="submit" disabled={loading} className="w-full bg-[#f7a221] hover:bg-[#e0911c] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-lg text-sm uppercase">
+//             {loading ? "SENDING OTP..." : "GET STARTED"}
+//           </button>
+//         </form>
+//       )}
+
+//       {showOtpModal && (
+//         <OtpVerification email={pendingEmail || email} name={name} onClose={() => setShowOtpModal(false)} onVerify={onRegisterSuccess} />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default Register;
 
 // CODE IS WORKING BUT THE POP NOT COMES IN CENTER *****************************************
 
