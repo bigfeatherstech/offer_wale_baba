@@ -447,7 +447,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             </div>
 
             {/* ROW 2: Search Bar */}
-            <div className="py-3">
+            {/* <div className="py-3">
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm"></div>
                 <div className="relative">
@@ -466,7 +466,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* DESKTOP LAYOUT */}

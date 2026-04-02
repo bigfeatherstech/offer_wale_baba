@@ -101,7 +101,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
                       <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
